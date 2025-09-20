@@ -2,13 +2,14 @@
 
 setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
 
-#-------------Delete later
+
+############ Q5 ############
+#------------- example data - Delete later
 a <- tolower(scan("shakespeare.txt",what="character",skip=83,nlines=196043-83,
-          fileEncoding="UTF-8"))
-a <- a[4:108]
+          fileEncoding="UTF-8"))[4:108]
 
 unique_words = unique(a);
-
+length(a);length(unique_words)
 # this replaces every word in the a, the text, with a number token
 # the word is replaced by the location/index of that word in unique_words
 a_tokenised = match(a, unique_words)
@@ -46,11 +47,7 @@ rm(token_counts,a_tokenised, unique_words)
 
 
 
-
-
-
-
-
+######### Q6 #############
 
 #so we are tokenising the text (for a second time) based on the vector b
 # each word in the text will be represented by a number token or NA
@@ -60,12 +57,12 @@ rm(token_counts,a_tokenised, unique_words)
 a_tokenised = match(a, b)
 
 
-#-----------  delete later
-a_tokenised = strsplit(
-  "A cat sat on the mat last night", " "
-)[[1]]
+#----------- example data - delete later
+# a_tokenised = strsplit(
+#   "A cat sat on the mat last night", " "
+# )[[1]]
 
-mlag = 3
+mlag = 20
 
 n = length(a_tokenised) #total number of words
 # I thought it was easier to manipulate M as an array first
@@ -73,18 +70,14 @@ n = length(a_tokenised) #total number of words
 col_length = n-mlag
 M = array(NA, col_length*(mlag+1) )
 
-
-
-#you don't like loops but this loop has only mlag iterations
-#and each iteration has constant time operations
-
 #M can be viewed as sliding a window of length col_length
 #over the vector a_tokenised
 #the first column of M is the first col_length elements of a_tokenised
 #the second column is the next col_length elements starting at the 2nd element
 #the ith column is the next col_length elements starting at the ith element
 
-
+#you don't like loops but this loop has only mlag iterations
+#and each iteration has constant time operations
 for (i in 0:mlag){
   #the first col_length elements in M are column 1
   #the elements in position col_length+1  to 2*col_length are column 2
@@ -94,9 +87,10 @@ for (i in 0:mlag){
   M[ column_i_indices  ]  = a_tokenised[i + 1:col_length ]
 }
 
-#now just turn M from an array into a matrix
+#now turn M from an array into a matrix
+# by default the matrix functions fills in column by column
 M <- matrix(M, n-mlag, mlag+1)
-
+dim(M)
 
 
 
