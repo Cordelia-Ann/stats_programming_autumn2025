@@ -9,11 +9,24 @@ close.bracket <- grep("]", a, fixed=TRUE) #this finds all the locations in a whe
 data.length <- length(a) #this finds the total length of the shakespeare text
 
 stage.directions <- c() #creating an empty vector to put the stage directions into
+stage.index <-list() #i need to store the actual stage direction position values somewhere
 index <- 1 #this creates an index to reference below in the while loop to cycle through all values of open.bracket
-
-while(index <=length(open.bracket)) {
+length(open.bracket)
+length(close.bracket)
+while(index <=length(open.bracket)) {     #i believe i have an error when the bracket indexes don't match 
+                                          #(i.e. I pass over) a hanging bracket without a pair. I need to get the two to match always or pass over the hanging bracket. There are 3 open brackets than close.
+  if (close.bracket[index]!=open.bracket[index]){
+      
+  then
   
-  
-  if ("]" %in% a[open.bracket:close.bracket]) {
-    close.index <- grepl("]", a, fixed=TRUE)}}
+  if (open.bracket[index]+100 >= close.bracket[index]) {        #this checks if the location of the close bracket is within 100 words of the open bracket
+                                                                #if it is, it adds the words to a vector (enclosed.set) then adds those words into the vector stage.directions
+    enclosed.set <- a[open.bracket[index]:close.bracket[index]]
+    stage.directions <- c(stage.directions, paste(enclosed.set))
+    stage.index[[length(stage.index) + 1]] <-open.bracket[index]:close.bracket[index]}
+  else {
+    
+  }
+  index <- index+1
+}
 
