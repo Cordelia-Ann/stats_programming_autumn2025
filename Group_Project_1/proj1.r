@@ -4,7 +4,6 @@ a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncod
 
 open.bracket <- grep("[", a, fixed=TRUE) #this finds all the locations in a where there is an open bracket
 close.bracket <- grep("]", a, fixed=TRUE) #this finds all the locations in a where there is an close bracket
-data.length <- length(a) #this finds the total length of the shakespeare text
 
 stage.directions <- c() #creating an empty vector to put the stage directions into
 stage.index <-list() #i need to store the actual stage direction position values somewhere
@@ -20,7 +19,7 @@ while(counter <=length(open.bracket)) {     #i believe i have an error when the 
   
   if (open.bracket[counter]+100 >= bracket.balance) {        #this checks if the location of the close bracket is within 100 words of the open bracket
     stage.index[[length(stage.index) + 1]] <-open.bracket[counter]:bracket.balance #if it is, add the positions from the start to the end to our stage.index list
-  } else {
+  } else { #can we remove the else from this?
     #do nothing
   }
   counter <- counter+1 #increase our index to step through the remaining words
@@ -41,7 +40,7 @@ while(name.counter <=length(a.no.stage)) {  #I need to step through the words in
 
   if (a.no.stage[name.counter] == toupper(a.no.stage[name.counter])) {        #this checks if the word (not "i" or "a" is equal to its fully uppercase value)
     stage.names[[length(stage.names) + 1]] <- name.counter # it then adds the position of this word to our stage.names list (which is a list for some reason and not a vector)
-  } else {
+  } else { #can we remove the else from this?
     #do nothing
   }
   name.counter <- name.counter+1 #increase our index to step through all of our remaining words
@@ -50,3 +49,32 @@ while(name.counter <=length(a.no.stage)) {  #I need to step through the words in
 stage.names <- unlist(stage.names) #unlist the stage.names into a vector of positions (still not sure why it starts as a list not vector)
 a.no.names <- a.no.stage[-stage.names] #remove the all caps words from our list of words
 a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
+
+punctuation.vec <- c(",", ".", ";", "!", ":", "?") #this is a vector of all punctuation to check for in a.no.underscore
+
+split_punct <- function(wordlist, punctuations) { #creating function to split punctuation 
+  punct.counter <- 1 #create a counter to step through word list input
+  output <- c() #create a vector to store the output of the function
+  
+  while (punct.counter <= length(wordlist)) { #while loop to run through the entire loop of the input wordlist 1 by 1
+    current.word <- wordlist[punct.counter] #store the current word in the list
+    last_char <- substr(current.word, nchar(current.word), nchar(current.word)) #store the last character of the list (we want to check if this is a punctuation mark)
+    
+    for (p in punctuations){ #loop through the vector of punctuation points fed into the function
+      check<-grepl(last_char %in% p, wordlist[punct.counter], fixed=TRUE) #checks the last character of
+      if (check == FALSE){ #if the word doesn't have a punctuation
+        output <-c(output,current.word) #put the word in the output vector this doesnt work here
+        next #go to the next punctuation mark
+      }
+      if (check == TRUE){ #if the word has a punctuation
+        current.word<- gsub(last_char,"", current.word)
+        output <- c(output, current.word, last_char) #put the word and then separate punctuation after it in the vector. need to remove the last from the first word here too
+        break #go to the next word
+      }
+    }
+    punct.counter <- punct.counter+1 #increase the counter to step through
+  }
+  return(output) #lets the output vector be returned and assigned to a variable name
+}
+a.punct <- split_punct(a.no.underscore, punctuation.vec)
+
