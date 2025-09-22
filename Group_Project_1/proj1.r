@@ -53,28 +53,24 @@ a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
 punctuation.vec <- c(",", ".", ";", "!", ":", "?") #this is a vector of all punctuation to check for in a.no.underscore
 
 split_punct <- function(wordlist, punctuations) { #creating function to split punctuation 
-  punct.counter <- 1 #create a counter to step through word list input
-  output <- c() #create a vector to store the output of the function
+  punct.counter <- 1 #create a counter to step through output list
+  output <- list() #create a list to store the output of the function
+  collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]") #collapse the punctuation vector into a single string
   
-  while (punct.counter <= length(wordlist)) { #while loop to run through the entire loop of the input wordlist 1 by 1
-    current.word <- wordlist[punct.counter] #store the current word in the list
-    last_char <- substr(current.word, nchar(current.word), nchar(current.word)) #store the last character of the list (we want to check if this is a punctuation mark)
+  for (current.word in wordlist) { #for loop to run through the entire loop of the input wordlist 1 by 1
+    last.char <- substr(current.word, nchar(current.word), nchar(current.word)) #store the last character of the list (we want to check if this is a punctuation mark)
     
-    for (p in punctuations){ #loop through the vector of punctuation points fed into the function
-      check<-grepl(last_char %in% p, wordlist[punct.counter], fixed=TRUE) #checks the last character of
-      if (check == FALSE){ #if the word doesn't have a punctuation
-        output <-c(output,current.word) #put the word in the output vector this doesnt work here
-        next #go to the next punctuation mark
+      if (grepl(collapsed.punct, last.char)==TRUE){ #if the word has a punctuation
+        no.punct.word <- substr(current.word, 1, nchar(current.word)-1) #make a variable for the word without the punctuation on the end
+        output[[punct.counter]] <- no.punct.word #put the word without punctuation into the list
+        output[[punct.counter +1]] <- last.char #put the punctuation mark into the list after the word
+        punct.counter <- punct.counter + 2 #increase the counter because we increased the length of the output list by 2
+        } else {
+        output[[punct.counter]] <- current.word #there was no punctuation found, so just put the word next in the list
+        punct.counter <- punct.counter + 1 #increase the counter by 1 because 
       }
-      if (check == TRUE){ #if the word has a punctuation
-        current.word<- gsub(last_char,"", current.word)
-        output <- c(output, current.word, last_char) #put the word and then separate punctuation after it in the vector. need to remove the last from the first word here too
-        break #go to the next word
-      }
-    }
-    punct.counter <- punct.counter+1 #increase the counter to step through
   }
-  return(output) #lets the output vector be returned and assigned to a variable name
+  return(unlist(output[1:(punct.counter-1)])) #unlists the output list into a vector over the length of the list minus one because the for loop added one extra to the counter
 }
-a.punct <- split_punct(a.no.underscore, punctuation.vec)
+a.punct <- split_punct(a.no.underscore, punctuation.vec) #creates a new word list with the punctuations separated from the words using the split_punct function
 
