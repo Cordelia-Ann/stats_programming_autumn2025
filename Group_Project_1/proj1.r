@@ -31,7 +31,7 @@ a.no.stage <- a[-stage.index.vector] #there are still 3 open brackets left in th
 
 stage.names <-c() #i need to store the actual stage names in a vector
 name.counter <- 1 #this creates an index to reference below in the while loop to cycle through all values of a.no.stage
-avoid.words <- c("a","i","A","I") # i need to avoid these words in their comparison to an all uppercase version of the word
+avoid.words <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") # i need to avoid these words in their comparison to an all uppercase version of the word
 
 while(name.counter <=length(a.no.stage)) {  #I need to step through the words in a.no.stage to check for stage names
   if (a.no.stage[name.counter] %in% avoid.words){ # this checks if the word is "i" or "a" and skips it
@@ -97,7 +97,7 @@ cbind(a.clean.lower, M1)[11:25,]
 
 #----------change to 1000 later
 #the model will use only the K most common words as part of its vocabulary
-K_most_common_words = 20
+K_most_common_words = 1000
 
 #token/index counts
 #tabulate takes in the text tokenised as numbers 
@@ -138,7 +138,7 @@ a_tokenised = match(a.clean.lower, b)
 #   "A cat sat on the mat last night", " "
 # )[[1]]
 
-mlag = 20
+mlag = 4
 
 n = length(a_tokenised) #total number of words
 # I thought it was easier to manipulate M as an array first
