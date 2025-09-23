@@ -73,4 +73,4 @@ split_punct <- function(wordlist, punctuations) { #creating function to split pu
   return(unlist(output[1:(punct.counter-1)])) #unlists the output list into a vector over the length of the list minus one because the for loop added one extra to the counter
 }
 a.punct <- split_punct(a.no.underscore, punctuation.vec) #creates a new word list with the punctuations separated from the words using the split_punct function
-
+a.clean.lower <- tolower(a.punct) #this makes every word all lowercase
