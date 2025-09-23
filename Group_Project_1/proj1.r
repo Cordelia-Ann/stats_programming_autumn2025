@@ -266,7 +266,7 @@ generate tokens up to mlag+1. Additionally, the code includes NAs as words"
 Question 8
 "
 
-# Need to create a dataframe with given word and token (see below) --> ask todd
+# THIS ONE WILL RANDOM GENERATE NAs
 
 random_word_retrieval <- function(token_vector=M1, token_compare=b){
   "
