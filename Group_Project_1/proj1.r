@@ -1,6 +1,6 @@
 #Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199
 #Naoise built the functionality to cover #5-6. Todd built the data cleaning and filtering to cover #4. Cordelia built the functionality to implement 7-9.
-setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_1\\stats_programming_autumn2025\\Group_Project_1") ## comment out of submitted
+# setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_1\\stats_programming_autumn2025\\Group_Project_1") ## comment out of submitted
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
 open.bracket <- grep("[", a, fixed=TRUE) #this finds all the locations in a where there is an open bracket
@@ -80,9 +80,6 @@ a.clean.lower <- tolower(a.punct) #this makes every word
 
 
 ############ Q5 ############
-#------------- example data - Delete later
-#a <- tolower(scan("shakespeare.txt",what="character",skip=83,nlines=196043-83,
-#                  fileEncoding="UTF-8"))[4:108]
 
 create_b_from_text <- function(txt, K_most_common_words =1000){
   unique_words = unique(txt);
