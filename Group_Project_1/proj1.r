@@ -196,55 +196,46 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   # If key has more (or equal) words to M1, shorten key
   if (len_key >= len_M) {
     # Exclude beginning tokens from key vector
-    key1 <- key[((len_key+1) - len_M):len_key]
+    key <- key[((len_key+1) - len_M):len_key]
     } else {
-    key1 <- key
+    key <- key
   }
-  # key1 now (at least) one word shorter than M
+  # key now (at least) one word shorter than M
   
   # Initialize a predicted word vector
   predicted_tokens <- c()
   
-  # Compare rows of M to key1 to find predictions
-  compare_key <- colSums(!(t(M[,1:length(key1),drop=FALSE])==key1))
-  finite_compare_key <- is.finite(compare_key)
-  # List to find matches between key and matrix M
-  for (i in 1:length(compare_key)){
-    # If compare_key[i] is 0 and is finite, then row i of M contains a match
-    # If conditions not satisfied, ignore this row (e.g. break the loop)
-    if( finite_compare_key[i]==TRUE ){
-      if ( compare_key[i]==0 ){
-        # Append tokens (located one token after len_key1) to the predicted_tokens vector
-        predicted_tokens <- append(predicted_tokens, M[i, (length(key1)+1)])
-      }
-      else{break} }
-    #else{break} }
-  }
-  # This results in a vector predicted_tokens that contains the predictions
-  # of the next word in the phrase
+  # Compare rows of M to key to find predictions
+  compare_key <- colSums(!(t(M[,1:length(key),drop=FALSE])==key))
+  # If compare_key[i] is 0 and is finite, then  contains a match
+  matched_key = which(compare_key ==0 & is.finite(compare_key))
+  # Add the predictions (rows of M found above) to predicted_tokens
+  predicted_tokens <- M[matched_key, length(key)+1]
+  # This results in a vector containing the predictions of the next word in the phrase
   
   # If there are NO predictions, sample randomly from M1
-  
-  # Does this random sample need to account for NAs??? (M1 should just contain the 1000 most common words???)
-  # Or do we need to do this?
-  if ( is.null(predicted_tokens)==TRUE ){
+  if ( is.null(predicted_tokens) == TRUE ){
     predicted_tokens <- append(predicted_tokens, sample(M1, 1))
   }
   
   # Associate a probability with each predicted token
-  associated_probability <- rep(w[length(key1)]/length(predicted_tokens), length(predicted_tokens))
+  associated_probability <- rep(w[length(key)]/length(predicted_tokens), length(predicted_tokens))
 
   # Sampling a token from the observed tokens and weighted frequencies (NAOISE)
   # Taking resample function from ?sample
-  
-  ### I THINK THE MAIN GLITCH IS WITH THE RESAMPLE FUNCTION ACCORDING TO DEBUG ###
   resample <- function(x, ...) x[sample.int(length(x), ...)]
   next_token <- resample(x = predicted_tokens, 1, prob = associated_probability)
+  # Check whether the next_token is NA (REMEMBER TO exclude punctuation!!!!!!!!!!!!!!!!!)
+  if ( is.na(next_token) == TRUE ){
+    next_word <- sample(M1, 1)
+    return(print(paste("This is the next word:", next_word)))
+  }
   
-  # Append next_token to key
-  key <- append(key, next_token)
-  # Return the next token in the word phrase
-  return(key)
+  # Return the next word in the word phrase
+  ### ASK IN TUTORIAL WHETHER WE CAN INCLUDE B WITHOUT ADDING INTO FUNCTION??? ###
+  next_word <- b[next_token]
+  
+  return(print(paste("This is the next word:", next_word)))
 }
 
 # Start with your initial key
