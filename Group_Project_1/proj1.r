@@ -155,4 +155,18 @@ create_M_from_text <- function(txt, b, mlag){
 
 mlag = 4
 M <- create_M_from_text(a.clean.later, b, mlag)
+M1 <- na.omit(match(M, b))
+
+#############  
+
+
+
+
+
+
+
+
+
+
+
 
