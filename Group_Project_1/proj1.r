@@ -82,43 +82,46 @@ a.no.underscore <- gsub("-", "", a.no.underscore, fixed=TRUE)
 #this is a vector of all punctuation to check for in a.no.underscore
 punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 
-
-#creating function to split punctuation, create a counter to step through output list
-#create a list to store the output of the function
-split_punct <- function(wordlist, punctuations) { 
-  punct.counter <- 1 
-  output <- list() 
-  #collapse the punctuation vector into a single string
-  collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]") 
+#create function which will take a word vector and a punctuation vector
+#as inputs, and takes any punctuation off the ends of words
+#and outputs a new vector with the punctuation as standalone words
+#in the position immediately after the word they were attached to.
+#maybe "wordlist" could be better named "wordvector" or something
+split_punct <- function(wordlist, punctuations) {
+  #collapse the punctuation vector into a single string 
+  collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]$")
   
-#for loop to run through the entire loop of the input wordlist 1 by 1
-#store the last character of the list (we want to check if this is a punctuation mark)
-  for (current.word in wordlist) { 
-    last.char <- substr(current.word, nchar(current.word), nchar(current.word))
-    
-    #if the word has a punctuation
-    #make a variable for the word without the punctuation on the end
-    #put the word without punctuation into the list
-    #put the punctuation mark into the list after the word
-    #increase the counter because we increased the length of the output list by 2
-      if (grepl(collapsed.punct, last.char)==TRUE){ 
-        no.punct.word <- substr(current.word, 1, nchar(current.word)-1) 
-        output[[punct.counter]] <- no.punct.word 
-        output[[punct.counter +1]] <- last.char 
-        punct.counter <- punct.counter + 2 
-        } else {
-          #there was no punctuation found, so just put the word next in the list
-          #increase the counter by 1 because we didn't split off anything
-        output[[punct.counter]] <- current.word 
-        punct.counter <- punct.counter + 1 
-      }
-  }
-  #unlists the output list into a vector over the length of the 
-  #list minus one because the for loop added one extra to the counter
-  return(unlist(output[1:(punct.counter-1)])) 
+  #Find positions where word has end punctuation
+  ends.punct <- grepl(collapsed.punct, wordlist)
+  
+  #Take the words cutting off the end punctuation if true, else, just the word
+  #that didnt have any end punctuation
+  no.punct <- ifelse(ends.punct, substr(wordlist, 1, nchar(wordlist) - 1), wordlist)
+  #print(no.punct) remove when working correctly
+  #print(length(no.punct)) remove when working correctly
+  
+  #Take the punctuation off of the words that had them at the end only if true, 
+  #else it an empty char in the position. This makes sure it is the same length
+  #as no.punct (which is every word plus every word without their end punct)
+  punct.only <- ifelse(ends.punct,substr(wordlist, nchar(wordlist), nchar(wordlist)),"")
+  #print(length(punct.only)) remove when working correctly
+  
+  #rbind: Take a sequence of vectors, matrix or data-frame arguments and combine by rows. 
+  #This takes below:
+  #vector1: "word1", "word2", "word3", "word4"   (assume word 4 had an end punct before removal)
+  #vector2:  ""    ,  ""    ,   ""   , "1st punct"
+  #and makes it look like "word1, "", "word2", "", "word3", "", "word4", "1st punct" 
+  output <- c(rbind(no.punct, punct.only))
+  #print(output) remove when working correctly
+  
+  #Remove all the empty strings from the output
+  output[output != ""]
 }
-#creates a new word list with the punctuations separated from the words 
-#using the split_punct function and then make all words lowercase
+
+#Create new word vector with end punctuation split into their own words, using the
+#most recently modified text (a.no.underscore), and the vector of all desired 
+#punctuation to split
+#Then make all words lowercase
 a.punct <- split_punct(a.no.underscore, punctuation.vec) 
 a.clean.lower <- tolower(a.punct)
 
