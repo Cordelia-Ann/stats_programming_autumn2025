@@ -2,84 +2,128 @@
 #Naoise built the functionality to cover #5-6. Todd built the data cleaning and filtering to cover #4. Cordelia built the functionality to implement 7-9.
 setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
-open.bracket <- grep("[", a, fixed=TRUE) #this finds all the locations in a where there is an open bracket
-close.bracket <- grep("]", a, fixed=TRUE) #this finds all the locations in a where there is an close bracket
 
-stage.directions <- c() #creating an empty vector to put the stage directions into
-stage.index <-list() #i need to store the actual stage direction position values somewhere
-counter <- 1 #this creates an index to reference below in the while loop to cycle through all values of open.bracket
+#find the positions in a of all the open and close brackets and store them for use
+open.bracket <- grep("[", a, fixed=TRUE) 
+close.bracket <- grep("]", a, fixed=TRUE) 
 
-while(counter <=length(open.bracket)) {     #i believe i have an error when the bracket indexes don't match 
-  #(i.e. I pass over) a hanging bracket without a pair. I need to get the two to match always or pass over the hanging bracket. There are 3 open brackets than close.
-  if (is.na(close.bracket[counter])) {      #this didnt return an error so I assume it got the extra 3 taken care of    
-    bracket.balance <- open.bracket[counter]
-  } else {
-    bracket.balance <- close.bracket[counter]
-  }
+#store the locations of stage directions and create counters to process through all
+#the open and close brackets
+stage.directions <-list()
+open.counter <- 1
+close.counter <- 1 
+
+#this checks while the length of the open counter is less than or equal to the total 
+#number of open brackets and while close counter is less than or equal to the total
+#number of close brackets, we move along the positions and takes all the positions
+#between two brackets if they are within 100 positions of each other, else it skips
+#this should assess only the first close bracket reached after the open bracket.
+while (open.counter <= length(open.bracket) && close.counter <= length(close.bracket)) { 
   
-  if (open.bracket[counter]+100 >= bracket.balance) {        #this checks if the location of the close bracket is within 100 words of the open bracket
-    stage.index[[length(stage.index) + 1]] <-open.bracket[counter]:bracket.balance #if it is, add the positions from the start to the end to our stage.index list
-  } else { #can we remove the else from this?
-    #do nothing
+  open.position <- open.bracket[open.counter]
+  close.position <- close.bracket[close.counter]
+  
+  if (close.position < open.position) {
+    close.counter <- close.counter + 1
+  } else {
+    # Check if the close bracket within 100 positions of the open
+    stage.gap <- close.position - open.position
+    if (stage.gap <= 100) {
+      #Add the position to the end of the stage direction list then increase both counters
+      stage.directions <- c(stage.directions, open.position:close.position)
+      open.counter <- open.counter + 1
+      close.counter <- close.counter + 1
+    } else {
+      #No corresponding close bracket, skip it.
+      open.counter <- open.counter + 1
+    }
   }
-  counter <- counter+1 #increase our index to step through the remaining words
 }
+#remove duplicates, unlist the stage direction positions to then remove from a
+#there are still 3 open brackets left, unsure what we want to do with them.
+#we could simply remove them during the punctuation section, or ignore.
+stage.directions <- unique(stage.directions[stage.directions <= length(a)])
+stage.directions.vector <- unlist(stage.directions)
+a.no.stage <- a[-stage.directions.vector] 
 
-stage.index.vector <- unlist(stage.index) #I need to use stage.index as a vector to delete the words at the included positions from our list of words
-a.no.stage <- a[-stage.index.vector] #there are still 3 open brackets left in the text, should I remove these alone when I remove the punctuation, or fix?
+#Create a vector to store stage names, a counter to loop through the current text,
+#and a list of words to avoid removing as they should be considered words when compared
+#to their all uppercase versions
+stage.names <-c()
+name.counter <- 1 
+avoid.words <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
 
-stage.names <-c() #i need to store the actual stage names in a vector
-name.counter <- 1 #this creates an index to reference below in the while loop to cycle through all values of a.no.stage
-avoid.words <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") # i need to avoid these words in their comparison to an all uppercase version of the word
-
-while(name.counter <=length(a.no.stage)) {  #I need to step through the words in a.no.stage to check for stage names
-  if (a.no.stage[name.counter] %in% avoid.words){ # this checks if the word is "i" or "a" and skips it
+#Step through the words in a.no.stage to check for stage names
+while(name.counter <=length(a.no.stage)) {  
+  # this checks if the word is "i" or "a" and skips it
+  if (a.no.stage[name.counter] %in% avoid.words){ 
     name.counter <- name.counter +1
     next
   } 
-  
-  if (a.no.stage[name.counter] == toupper(a.no.stage[name.counter])) {        #this checks if the word (not "i" or "a" is equal to its fully uppercase value)
-    stage.names[[length(stage.names) + 1]] <- name.counter # it then adds the position of this word to our stage.names list (which is a list for some reason and not a vector)
-  } else { #can we remove the else from this?
-    #do nothing
-  }
-  name.counter <- name.counter+1 #increase our index to step through all of our remaining words
+  #this checks if the word (not "i" or "a" is equal to its fully uppercase value)
+  if (a.no.stage[name.counter] == toupper(a.no.stage[name.counter])) {        
+    # it then adds the position of this word to our stage.names list 
+    #(which is a list for some reason and not a vector)
+    stage.names[[length(stage.names) + 1]] <- name.counter 
+  } 
+  #increase our index to continue looking
+  name.counter <- name.counter+1 
 }
 
-stage.names <- unlist(stage.names) #unlist the stage.names into a vector of positions (still not sure why it starts as a list not vector)
-a.no.names <- a.no.stage[-stage.names] #remove the all caps words from our list of words
+#Unlist the stage.names into a vector of positions (still not sure why it 
+#starts as a list not vector). Remove the all caps words from our list of words.
+#Remove all underscores and hypens
+
+stage.names <- unlist(stage.names) 
+a.no.names <- a.no.stage[-stage.names] 
 a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
+a.no.underscore <- gsub("-", "", a.no.underscore, fixed=TRUE)
 
-punctuation.vec <- c(",", ".", ";", "!", ":", "?") #this is a vector of all punctuation to check for in a.no.underscore
+#this is a vector of all punctuation to check for in a.no.underscore
+punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 
-split_punct <- function(wordlist, punctuations) { #creating function to split punctuation 
-  punct.counter <- 1 #create a counter to step through output list
-  output <- list() #create a list to store the output of the function
-  collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]") #collapse the punctuation vector into a single string
+#create function which will take a word vector and a punctuation vector
+#as inputs, and takes any punctuation off the ends of words
+#and outputs a new vector with the punctuation as standalone words
+#in the position immediately after the word they were attached to.
+#maybe "wordlist" could be better named "wordvector" or something
+split_punct <- function(wordlist, punctuations) {
+  #collapse the punctuation vector into a single string 
+  collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]$")
   
-  for (current.word in wordlist) { #for loop to run through the entire loop of the input wordlist 1 by 1
-    last.char <- substr(current.word, nchar(current.word), nchar(current.word)) #store the last character of the list (we want to check if this is a punctuation mark)
-    
-    if (grepl(collapsed.punct, last.char)==TRUE){ #if the word has a punctuation
-      no.punct.word <- substr(current.word, 1, nchar(current.word)-1) #make a variable for the word without the punctuation on the end
-      output[[punct.counter]] <- no.punct.word #put the word without punctuation into the list
-      output[[punct.counter +1]] <- last.char #put the punctuation mark into the list after the word
-      punct.counter <- punct.counter + 2 #increase the counter because we increased the length of the output list by 2
-    } else {
-      output[[punct.counter]] <- current.word #there was no punctuation found, so just put the word next in the list
-      punct.counter <- punct.counter + 1 #increase the counter by 1 because 
-    }
-  }
-  return(unlist(output[1:(punct.counter-1)])) #unlists the output list into a vector over the length of the list minus one because the for loop added one extra to the counter
+  #Find positions where word has end punctuation
+  ends.punct <- grepl(collapsed.punct, wordlist)
+  
+  #Take the words cutting off the end punctuation if true, else, just the word
+  #that didnt have any end punctuation
+  no.punct <- ifelse(ends.punct, substr(wordlist, 1, nchar(wordlist) - 1), wordlist)
+  #print(no.punct) remove when working correctly
+  #print(length(no.punct)) remove when working correctly
+  
+  #Take the punctuation off of the words that had them at the end only if true, 
+  #else it an empty char in the position. This makes sure it is the same length
+  #as no.punct (which is every word plus every word without their end punct)
+  punct.only <- ifelse(ends.punct,substr(wordlist, nchar(wordlist), nchar(wordlist)),"")
+  #print(length(punct.only)) remove when working correctly
+  
+  #rbind: Take a sequence of vectors, matrix or data-frame arguments and combine by rows. 
+  #This takes below:
+  #vector1: "word1", "word2", "word3", "word4"   (assume word 4 had an end punct before removal)
+  #vector2:  ""    ,  ""    ,   ""   , "1st punct"
+  #and makes it look like "word1, "", "word2", "", "word3", "", "word4", "1st punct" 
+  output <- c(rbind(no.punct, punct.only))
+  #print(output) remove when working correctly
+  
+  #Remove all the empty strings from the output
+  output[output != ""]
 }
 
-# split_punct takes too long
-
-a.punct <- split_punct(a.no.underscore, punctuation.vec) #creates a new word list with the punctuations separated from the words using the split_punct function
-a.clean.lower <- tolower(a.punct) #this makes every word
-
-#setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
-
+#Create new word vector with end punctuation split into their own words, using the
+#most recently modified text (a.no.underscore), and the vector of all desired 
+#punctuation to split
+#Then make all words lowercase
+a.punct <- split_punct(a.no.underscore, punctuation.vec) 
+a.clean.lower <- tolower(a.punct)
 
 ############ Q5 ############
 
@@ -166,11 +210,19 @@ mlag = 4
 M <- create_M_from_text(a.clean.lower, b, mlag)
 # Create M1
 M1 <- match(a.clean.lower, b)
-# Remove NAs (AND NEED TO REMOVE PUNCTUATION TOO) from M1
+# Remove NAs from M1
 M1 <- M1[!is.na(M1)]
 
-punctuation.vec <- c(",", ".", ";", "!", ":", "?")
-
+# Create a vector of punctuation symbols
+punctuation_vec <- c(",", ".", ";", "!", ":", "?")
+# Initialise the vector of punctuation tokens
+punctuation_tokens <- c()
+# Using a for loop and the specific_word_retrieval function, identify punctuation tokens
+# for (i in 1:(length(punctuation_vec))){
+#   punctuation_tokens <- append(punctuation_tokens, specific_word_retrieval(punctuation_vec[i]))
+# }
+# specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
+punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
 
 # The function next.word generates a token for the next word in the phrase
 
@@ -193,24 +245,30 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   # dim(M)[2] gives the number of columns in M (and subtracting one from that gives mlag)
   mlag <- dim(M)[2]-1
   
-  ### DO I NEED TO EXPLAIN ALL OF MY CALCULATIONS BELOW??? ###
-  
   if (len_key < mlag) {
     # Define variable mc when len_key < mlag
     mc <- mlag + 1 - len_key
     ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
-    
   } else if (len_key == mlag) {
     # Define variable mc when len_key = mlag
     mc <- 1
     ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
-    
   } else if (len_key > mlag) {
     # Define variable mc, and reduce length of key used in comparison with M
     # when len_key > mlag
     mc <- 1
     sub_key <- key[(len_key-mlag+1):len_key]
     ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key))
+  }
+  # Now iterate mc through columns of M -- shortening both key and mc
+  # Both key and mc will end with length one
+  for (i in 1:(len_key-1)){
+    # Define variable mc for shortened versions of len_key
+    mc <- (mlag + 1) - i
+    # and reduce length of key used in comparison with M
+    sub_key <- key[mc:len_key]
+    # Append the new matches found with each sub-key to ii
+    ii <- append( ii, colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key)) )
   }
   
   # If ii[j] is 0 and is finite, then  contains a match
@@ -224,21 +282,22 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
     predictions <- append(predictions, sample(M1, 1))
   }
   
-  # ERROR HERE! NEED TO ASK TUTORS IF THIS IS AN APPROPRIATE FIX
-  # error with w[len_key] when len_ley is longer than w
-  # not quite sure how to fix this so just replaced w with 1 --> same diff but not really
-  # This will be a problem in the marks scheme
-  
   # Associate a probability with each predicted token
+  ### MY FUNCTION DOES NOT USE WEIGHTS W ###
   probability <- rep(1/length(predictions), length(predictions))
   
   # Sampling a token from the observed tokens and weighted frequencies
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
   next_token <- resample(x = predictions, 1, prob = probability)
-  # Check whether the next_token is NA (REMEMBER TO exclude punctuation!!!!!!!!!!!!!!!!!)
+  
+  # Create a modified M1 vector excluding punctuation tokens for sampling
+  punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
+  # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
+  M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
+  # Check whether the next_token is NA
   if ( is.na(next_token) == TRUE ){
-    next_token1 <- sample(M1, 1)
+    next_token1 <- sample(M1_no_punctuation, 1)
     print(paste("This is the next token:", next_token1))
     key <- c(key, next_token1)
     return(key)
@@ -253,6 +312,9 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
 Question 8
 "
 
+# Do I actually need to combine these two? I thought they were ok as is without combining
+# They kinda serve different purposes
+
 random_word_retrieval <- function(token_vector=M1, token_compare=b){
   "
   This function initializes the key vector with a random word token.
@@ -260,9 +322,12 @@ random_word_retrieval <- function(token_vector=M1, token_compare=b){
   1. M1 is the vector of word tokens for the whole text
   2. token_compare is the vector matching word tokens to words
   "
-  # Select a single word token (but not punctuation) at random from the text
- "STILL SELECTS PUNCTUATION --> NEED TO REMOVE "
-  random_token <- sample(x=M1, size=1)
+  # Create a modified M1 vector excluding punctuation tokens for sampling
+  punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
+  # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
+  M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
+  # Randomly sample from the modified M1 vector
+  random_token <- sample(x=M1_no_punctuation, size=1)
   # Return the word token and given word
   print(paste("This is the word token:", random_token,
               "And corresponding word:", b[random_token]))
@@ -292,9 +357,10 @@ specific_word_retrieval <- function(given_word, token_compare=b) {
 Question 9
 "
 
-print.shakespeare <- function(key, token_compare=b){
+print_shakespeare <- function(key, token_compare=b){
   "
   This function converts the final key (vector of tokens) into written text.
+  There are no spaces between words and associated punctuation. # NAOISE
   
   Description of Parameters:
   1. key is the vector of generated word-tokens
@@ -307,18 +373,32 @@ print.shakespeare <- function(key, token_compare=b){
     # Append the word that corresponds with each token to end of sentence
     final_sentence <- append(final_sentence, b[key[i]])
   }
-  # Paste the words back together into one string
-  ### Capitalise the first word of the sentence (nchar???) ###
-  ### Punctuation is a space after everything else too, how to fix this??? ###
-  paste(final_sentence, collapse=" ")
+  
+  ### NAOISE ###
+  #this function turns a vector of words into a single sentence
+  #it ensures there isn't punctuation surround by spaces
+  #e.g. "the cat , whose..."
+  
+  punct_vec = unlist(strsplit("!,.?;:¬",""))
+  #find where the punctuation marks are
+  punct_locs <- which(final_sentence %in% punct_vec)
+  if(length(punct_locs) >0){
+    #join the punctuation marks onto the words proceeding them
+    #i found out that paste works this way by experimenting
+    final_sentence[punct_locs-1] <- paste(final_sentence[punct_locs-1], final_sentence[punct_locs], sep = "")
+    #then remove the entries for those marks
+    final_sentence <- final_sentence[-punct_locs]
+  }
+  return( paste(final_sentence, collapse = " "))
 }
+
+# DO WE ACTUALLY NEED TO MAKE THIS A FUNCTION? Probably fine as is, but happy to do so if needed
 
 " Choose either random_word_retrieval OR token_word_retrieval to initialize
 the key vector. This code chooses random_word_retrieval to start."
-# key <- random_word_retrieval()
-key <- specific_word_retrieval('romeo')
+key <- random_word_retrieval()
+# key <- specific_word_retrieval('romeo')
 
-### Should I make this a function itself??? ###
 # Enter a repeat loop of the next.word function until a full stop is reached
 repeat{
   # Use the next.word function from Question 7 to predict the next word
@@ -334,7 +414,10 @@ repeat{
 # Print the generated Shakespeare sentence
 print.shakespeare(key)
 
+"ask tutor if I am doing anything wrong when I end up with funky grammar"
+
 ### DO NOT FORGET THIS FINAL PART (NOT TECHNICALLY PART OF THE QUESTION) ###
 
 " Compare the results to ‘sentences’ obtained by simply drawing common words at
 random from the text until a full stop is drawn."
+#DO EXCLAMATIONS, QUESTIONS, PERIODS COUNT AS FULL STOPS??????? IDK
