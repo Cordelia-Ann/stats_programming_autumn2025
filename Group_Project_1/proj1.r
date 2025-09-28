@@ -1,6 +1,9 @@
 #Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199
 #Naoise built the functionality to cover #5-6. Todd built the data cleaning and filtering to cover #4. Cordelia built the functionality to implement 7-9.
 # setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_1\\stats_programming_autumn2025\\Group_Project_1") ## comment out of submitted
+rm(list=ls())
+setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
+
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
 open.bracket <- grep("[", a, fixed=TRUE) #this finds all the locations in a where there is an open bracket
@@ -76,10 +79,11 @@ split_punct <- function(wordlist, punctuations) { #creating function to split pu
 a.punct <- split_punct(a.no.underscore, punctuation.vec) #creates a new word list with the punctuations separated from the words using the split_punct function
 a.clean.lower <- tolower(a.punct) #this makes every word
 
-#setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
-
 
 ############ Q5 ############
+#taking this straight from ?sample
+resample <- function(x, ...) x[sample.int(length(x), ...)]
+
 
 create_b_from_text <- function(txt, K_most_common_words =1000){
   unique_words = unique(txt);
@@ -150,14 +154,120 @@ create_M_from_text <- function(txt, b, mlag){
   return( matrix(M, n-mlag, mlag+1) )
 }
 
-mlag = 4
-M <- create_M_from_text(a.clean.later, b, mlag)
-M1 <- na.omit(match(M, b))
+mlag = 10
+M <- create_M_from_text(a.clean.lower, b, mlag)
+M1 <- na.omit(match(a.clean.lower, b))
 
-#############  
+######################### Q7
+
+next_word <- function(key, M, M1, w = rep(1,ncol(M)-1) ){
+  
+  #initially define the maximum order lag from M
+  mlag <- ncol(M)-1
+  #shorten the key
+  if (length(key) > mlag) key <- key[(length(key)-mlag+1):length(key)]
+  #if the key is not of length mlag then simply shortening mlag allows
+  #everything here to work the same
+  if (length(key) < mlag) mlag <- length(key)
+
+  
+  combined_u <- numeric()
+  combined_u_weights <- numeric()
+  for (mc in 1:length(key)){
+    #get the rows where the entries from column mc to mlag ALL matched the key
+    ii = colSums(!(t(M[,mc:mlag,drop=F]) == key[mc:mlag]) )
+    #this will be unaffected by NAs or NaNS as they wont equal one here
+    matched_rows = which( ii == 0 & is.finite(ii))
+    
+    #get the tokens that came next in each of those rows (with duplicates)
+    u <-M[matched_rows,mlag+1]
+    #since sample doesnt need normalised probabilities
+    #just use the counts all weighted by the weight for this lag
+    u_weights <- rep(w[mc],length(u))
+    
+    #just combine these since sample works as expected with duplicates
+    combined_u <- c(combined_u, u)
+    combined_u_weights <- c(combined_u_weights, u_weights)
+  }
+  #sample a token from the observed tokens and their weighted frequencies
+  
+  next_token <- resample(x= combined_u, 1, prob = combined_u_weights)
+  #if an NA token was sampled just pick a random token from M1
+  next_token<- if (is.na(next_token)) resample(M1,size =1) else next_token
+  return(next_token)
+}
+
+######################### Q8
+create_starter_token <- function(starter_word = NULL, vocab = b){
+  #gives back the token for the word supplied, if its in the vocab
+  #otherwise it chooses a token randomly
+  #
+  if (!is.null(starter_word)){ 
+    #find the location of the word in the vocab, that will be the token
+    token <- which(vocab == starter_word)
+    #check that the word was actually in the vocab
+    if (length(token) > 0) return(token)
+  }
+  
+  #either no starter word was given or it was not in the vocab
+  #so randomly sample one from the vocab 
+  #but dont sample the words that are punctuations
+  punct_vec = unlist(strsplit("!,.?;:¬",""))
+  valid_locs <- which( !(vocab %in% punct_vec) )
+  return( 
+    resample(valid_locs, 1)
+  )
+  
+}
 
 
+######################### Q9
 
+merge_words <- function(words){
+  #this function turns a vector of words into a single sentence
+  #it ensures there isn't punctuation surround by spaces
+  #e.g. "the cat , whose..."
+  
+  punct_vec = unlist(strsplit("!,.?;:¬",""))
+  #find where the punctuation marks are
+  punct_locs <- which(words %in% punct_vec)
+  if(length(punct_locs) >0){
+    #join the punctuation marks onto the words proceeding them
+    #i found out that paste works this way by experimenting
+    words[punct_locs-1] <- paste(words[punct_locs-1], words[punct_locs], sep = "")
+    #then remove the entries for those marks
+    words <- words[-punct_locs]
+  }
+  return( paste(words, collapse = " "))
+}
+
+print_shakespeare <- function(starter_word=NULL, ...){
+  
+  #get the sequence started
+  token = create_starter_token(starter_word)
+  gen_tokens <- c(token)
+  cat(token, " ")
+  #define when to stop
+  full_stop_token = which(b==".")
+  while(token != full_stop_token){
+    #get the next token and add it in
+    token <- next_word(key = gen_tokens, ...)
+    cat(token," ")
+    gen_tokens <- c(gen_tokens, token)
+    #if a . was chosen the loop will stop after this
+  }
+  cat("\n")
+  
+  #convert tokens to words and merge them
+  sentence = merge_words(b[gen_tokens])
+  return(sentence)
+  
+}
+dim(M)
+# library("debug");mtrace(next_word)
+print_shakespeare("romeo",M,M1)
+# mtrace.off()
+which(b %in% "romeo")
 
 
 
