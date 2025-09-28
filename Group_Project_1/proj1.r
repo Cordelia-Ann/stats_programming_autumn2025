@@ -262,15 +262,16 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   }
   # Now iterate mc through columns of M -- shortening both key and mc
   # Both key and mc will end with length one
-  for (i in 1:(len_key-1)){
-    # Define variable mc for shortened versions of len_key
-    mc <- (mlag + 1) - i
-    # and reduce length of key used in comparison with M
-    sub_key <- key[mc:len_key]
-    # Append the new matches found with each sub-key to ii
-    ii <- append( ii, colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key)) )
+  if (len_key>1){
+    for (i in 1:(len_key-1)){
+      # Define variable mc for shortened versions of len_key
+      mc <- (mlag + 1) - i
+      # and reduce length of key used in comparison with M
+      sub_key <- key[mc:len_key]
+      # Append the new matches found with each sub-key to ii
+      ii <- append( ii, colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key)) )
+    }
   }
-  
   # If ii[j] is 0 and is finite, then  contains a match
   match = which(ii == 0 & is.finite(ii))
   # Add the predictions (rows of M found above) to predicted_tokens
