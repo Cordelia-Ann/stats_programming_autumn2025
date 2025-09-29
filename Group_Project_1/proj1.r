@@ -246,139 +246,155 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   mlag <- dim(M)[2]-1
   # Initialise predictions vector
   predictions <- c()
+  predictions_weights <- numeric()
   
-  if (len_key < mlag) {
-    # Define variable mc when len_key < mlag
-    mc <- mlag + 1 - len_key
-    
-    ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
-    # If ii[j] is 0 and is finite, then  contains a match
-    matching_rows = which(ii == 0 & is.finite(ii))
-    # Add the predictions (rows of M found above) to predicted_tokens
-    predictions <- M[matching_rows, mlag+1]
-    # This results in a vector containing the predictions of the next word in the phrase
-    
-  } else if (len_key == mlag) {
-    # Define variable mc when len_key = mlag
-    mc <- 1
-    
-    ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
-    # If ii[j] is 0 and is finite, then  contains a match
-    matching_rows = which(ii == 0 & is.finite(ii))
-    # Add the predictions (rows of M found above) to predicted_tokens
-    predictions <- M[matching_rows, mlag+1]
-    # This results in a vector containing the predictions of the next word in the phrase
-    
-  } else if (len_key > mlag) {
-    # Define variable mc, and reduce length of key used in comparison with M
-    # when len_key > mlag
-    mc <- 1
-    sub_key <- key[(len_key-mlag+1):len_key]
-    
-    ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key))
-    # If ii[j] is 0 and is finite, then  contains a match
-    matching_rows = which(ii == 0 & is.finite(ii))
-    # Add the predictions (rows of M found above) to predicted_tokens
-    predictions <- M[matching_rows, mlag+1]
-    # This results in a vector containing the predictions of the next word in the phrase
-    
-  }
+  
   # Now iterate mc through columns of M -- shortening both key and mc
   # Both key and mc will end with length one
-  if (len_key>1){
-    for (i in 1:(mlag-1)){
-      # Define variable mc for shortened versions of len_key
-      mc <- i
-      # and reduce length of key used in comparison with M
-      sub_key <- key[(len_key-mc+1):len_key]
-      
-      # Append the new matches found with each sub-key to ii
-      new_ii <- colSums(!(t(M[,(mlag-mc+1):mlag,drop=FALSE])==sub_key))
-      # If ii[j] is 0 and is finite, then  contains a match
-      new_matching_rows = which(new_ii == 0 & is.finite(new_ii))
-      # Add the predictions (rows of M found above) to predicted_tokens
-      new_predictions <- M[new_matching_rows, mlag+1]
-      # This results in a vector containing the predictions of the next word in the phrase
-      # Append new_predictions to pre-existing predictions vector
-      predictions <- append(predictions, new_predictions)
-      
-    }
+  # if (len_key>1){
+  # Define variable mc for shortened versions of len_key
+  for (mc in 1:mlag){
+    # and reduce length of key used in comparison with M
+    sub_key <- key[(len_key-mc+1):len_key]
+    
+    # Append the new matches found with each sub-key to ii
+    ii <- colSums(!(t(M[,(mlag-mc+1):mlag,drop=FALSE])==sub_key))
+    # If ii[j] is 0 and is finite, then  contains a match
+    matching_rows = which(ii == 0 & is.finite(ii))
+    # Add the predictions (rows of M found above) to predicted_tokens
+    # This results in a vector containing the predictions of the next word in the phrase
+    # Append new_predictions to pre-existing predictions vector
+    predictions <- append(predictions, M[matching_rows, mlag+1])
+    
+    #since sample doesn't need normalised probabilities
+    #just use the counts all weighted by the weight for this lag
+    predictions_weights <- append(predictions_weights, rep(w[mc],length(matching_rows)))
+    
+    
+    # if (len_key <= mlag) {
+    #   # Define variable mc when len_key < mlag
+    #   mc <- mlag + 1 - len_key
+    #   
+    #   ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
+    #   # If ii[j] is 0 and is finite, then  contains a match
+    #   matching_rows = which(ii == 0 & is.finite(ii))
+    #   # Add the predictions (rows of M found above) to predicted_tokens
+    #   predictions <- M[matching_rows, mlag+1]
+    #   # This results in a vector containing the predictions of the next word in the phrase
+    #   
+    # } else if (len_key > mlag) {
+    #   # Define variable mc, and reduce length of key used in comparison with M
+    #   # when len_key > mlag
+    #   mc <- 1
+    #   sub_key <- key[(len_key-mlag+1):len_key]
+    #   
+    #   ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key))
+    #   # If ii[j] is 0 and is finite, then  contains a match
+    #   matching_rows = which(ii == 0 & is.finite(ii))
+    #   # Add the predictions (rows of M found above) to predicted_tokens
+    #   predictions <- M[matching_rows, mlag+1]
+    #   # This results in a vector containing the predictions of the next word in the phrase
+    # }
   }
   
   # Create a modified M1 vector excluding punctuation tokens for sampling
   punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
   # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
   M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
-  # If there are NO predictions, sample randomly from M1_no_punctuation
-  if ( length(predictions) == 0 ){
-    predictions <- append(predictions, sample(M1_no_punctuation, 1))
-  }
-  
-  # Associate a probability with each predicted token
-  ### MY FUNCTION DOES NOT USE WEIGHTS W ###
-  probability <- rep(1/length(predictions), length(predictions))
   
   # Sampling a token from the observed tokens and weighted frequencies
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
-  next_token <- resample(x = predictions, 1, prob = probability)
+  next_token <- resample(x = predictions, 1, prob = predictions_weights)
   
-  # Check whether the next_token is NA
-  if ( is.na(next_token) == TRUE ){
-    next_token1 <- sample(M1_no_punctuation, 1)
-    # print(paste("This is the next token:", next_token1))
-    key <- c(key, next_token1)
-    return(key)
+  # # Check whether the next_token is NA
+  # if ( is.na(next_token) == TRUE ){
+  #   next_token1 <- sample(M1_no_punctuation, 1)
+  #   # print(paste("This is the next token:", next_token1))
+  #   key <- c(key, next_token1)
+  #   return(key)
+  # }
+  # 
+  # # If there are NO predictions, sample randomly from M1_no_punctuation
+  # if ( length(predictions) == 0 ){
+  #   next_token1 <- sample(M1_no_punctuation, 1)
+  #   # print(paste("This is the next token:", next_token1))
+  #   key <- c(key, next_token1)
+  #   return(key)
+  # }
+  
+  # If there are NO predictions OR next_token is NA, sample randomly from M1_no_punctuation
+  if ( is.na(next_token) || length(predictions) == 0 ) {
+    next_token <- sample(M1_no_punctuation, 1)
+    # # print(paste("This is the next token:", next_token1))
+    # key <- c(key, next_token1)
+    # return(key)
   }
-  
   # print(paste("This is the next token:", next_token))
-  key <- c(key, next_token)
-  return(key)
+  return(next_token)
 }
 
 "
 Question 8
 "
 
-# Do I actually need to combine these two? I thought they were ok as is without combining
-# They kinda serve different purposes
-
-random_word_retrieval <- function(token_vector=M1, token_compare=b){
-  "
-  This function initializes the key vector with a random word token.
-  Description of Parameters:
-  1. M1 is the vector of word tokens for the whole text
-  2. token_compare is the vector matching word tokens to words
-  "
-  # Create a modified M1 vector excluding punctuation tokens for sampling
-  punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
-  # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
-  M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
-  # Randomly sample from the modified M1 vector
-  random_token <- sample(x=M1_no_punctuation, size=1)
-  # Return the word token and given word
-  print(paste("This is the word token:", random_token,
-              "And corresponding word:", b[random_token]))
-  key <- c(random_token)
-  return(key)
-}
-
-
-specific_word_retrieval <- function(given_word, token_compare=b) {
-  "
-  This function retrieves the token for a specific word from the text.
+create_starter_token <- function(starter_word = NULL, vocab = b){
+  #gives back the token for the word supplied, if its in the vocab
+  #otherwise it chooses a token randomly
+  #
+  if (!is.null(starter_word)){ 
+    #find the location of the word in the vocab, that will be the token
+    token <- which(vocab == starter_word)
+    #check that the word was actually in the vocab
+    if (length(token) > 0) return(token)
+  }
   
-  Description of parameters:
-  1. given_word (a string) is the given word
-  2. token_compare is the vector matching word tokens to words
-  "
-  # Look up the corresponding token using match function
-  corresponding_token <- match(given_word, b)
-  print(paste("This is the word token:", corresponding_token,
-                     "And corresponding word:", given_word))
-  key <- c(corresponding_token)
-  return(key)
+  #either no starter word was given or it was not in the vocab
+  #so randomly sample one from the vocab 
+  #but dont sample the words that are punctuations
+  punct_vec = unlist(strsplit("!,.?;:¬",""))
+  valid_locs <- which( !(vocab %in% punct_vec) )
+  # Taking resample function from ?sample
+  resample <- function(x, ...) x[sample.int(length(x), ...)]
+  return( 
+    resample(valid_locs, 1)
+  )
+  
 }
+
+# random_word_retrieval <- function(token_vector=M1, token_compare=b){
+#   "
+#   This function initializes the key vector with a random word token.
+#   Description of Parameters:
+#   1. M1 is the vector of word tokens for the whole text
+#   2. token_compare is the vector matching word tokens to words
+#   "
+#   # Create a modified M1 vector excluding punctuation tokens for sampling
+#   punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
+#   # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
+#   M1_no_punctuation <- token_vector[! token_vector %in% punctuation_tokens]
+#   # Randomly sample from the modified M1 vector
+#   random_token <- sample(x=M1_no_punctuation, size=1)
+#   # Return the word token and given word
+#   print(paste("This is the word token:", random_token,
+#               "And corresponding word:", token_compare[random_token]))
+#   return(random_token)
+# }
+# 
+# specific_word_retrieval <- function(given_word, token_compare=b) {
+#   "
+#   This function retrieves the token for a specific word from the text.
+#   
+#   Description of parameters:
+#   1. given_word (a string) is the given word
+#   2. token_compare is the vector matching word tokens to words
+#   "
+#   # Look up the corresponding token using match function
+#   corresponding_token <- match(given_word, token_compare)
+#   print(paste("This is the word token:", corresponding_token,
+#                      "And corresponding word:", given_word))
+#   return(corresponding_token)
+# }
 
 
 "
@@ -395,19 +411,11 @@ print_shakespeare <- function(key, token_compare=b){
   2. token_compare is the dataframe matching word tokens to words
   "
   # Initialize sentence vector (to correspond with key)
-  final_sentence <- c()
-  # Loop through each word in the key vector
-  for (i in 1:(length(key))){
-    # Append the word that corresponds with each token to end of sentence
-    final_sentence <- append(final_sentence, b[key[i]])
-  }
+  final_sentence <- token_compare[key]
   
-  ### NAOISE ###
   #this function turns a vector of words into a single sentence
   #it ensures there isn't punctuation surround by spaces
   #e.g. "the cat , whose..."
-  
-  ### NAOISE's bit seems to hide double commas and the like ###
   punct_vec = unlist(strsplit("!,.?;:¬",""))
   #find where the punctuation marks are
   punct_locs <- which(final_sentence %in% punct_vec)
@@ -423,21 +431,21 @@ print_shakespeare <- function(key, token_compare=b){
 
 # DO WE ACTUALLY NEED TO MAKE THIS A FUNCTION? Probably fine as is, but happy to do so if needed
 
-" Choose either random_word_retrieval OR token_word_retrieval to initialize
-the key vector. This code chooses random_word_retrieval to start."
-key <- random_word_retrieval()
-# key <- specific_word_retrieval('romeo')
+" Choose create_starter_token to initialize the key vector. This code chooses random to start."
+key <- create_starter_token()
+# key <- create_starter_token('romeo', b)
 
-# Enter a repeat loop of the next.word function until a full stop is reached
-repeat{
+# Initialise final_token_key
+final_token_key <- -1
+# Initialise full stop token variable
+full_stop_token <- create_starter_token('.', b)
+# Enter a loop of the next.word function until a full stop is reached
+# Note that the full-stop token is 2
+while ( final_token_key != full_stop_token){
   # Use the next.word function from Question 7 to predict the next word
-  key <- next.word(key,M,M1)
+  key <- append(key, next.word(key,M,M1))
   # Identify final value in the vector
   final_token_key <- key[length(key)]
-  # Break function if final token in key corresponds with full-stop token
-  # Note that the full-stop token is 2
-  if ( 2 == final_token_key )
-    break
 }
 
 # Print the generated Shakespeare sentence
