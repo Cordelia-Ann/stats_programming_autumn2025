@@ -250,8 +250,12 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   
   
   # Now iterate mc through columns of M -- shortening both key and mc
-  # Both key and mc will end with length one
-  # if (len_key>1){
+  #shorten the key
+  if (length(key) > mlag) key <- key[(length(key)-mlag+1):length(key)]
+  #if the key is not of length mlag then simply shortening mlag allows
+  #everything here to work the same
+  if (length(key) < mlag) mlag <- length(key)
+  
   # Define variable mc for shortened versions of len_key
   for (mc in 1:mlag){
     # and reduce length of key used in comparison with M
@@ -269,32 +273,6 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
     #since sample doesn't need normalised probabilities
     #just use the counts all weighted by the weight for this lag
     predictions_weights <- append(predictions_weights, rep(w[mc],length(matching_rows)))
-    
-    
-    # if (len_key <= mlag) {
-    #   # Define variable mc when len_key < mlag
-    #   mc <- mlag + 1 - len_key
-    #   
-    #   ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==key))
-    #   # If ii[j] is 0 and is finite, then  contains a match
-    #   matching_rows = which(ii == 0 & is.finite(ii))
-    #   # Add the predictions (rows of M found above) to predicted_tokens
-    #   predictions <- M[matching_rows, mlag+1]
-    #   # This results in a vector containing the predictions of the next word in the phrase
-    #   
-    # } else if (len_key > mlag) {
-    #   # Define variable mc, and reduce length of key used in comparison with M
-    #   # when len_key > mlag
-    #   mc <- 1
-    #   sub_key <- key[(len_key-mlag+1):len_key]
-    #   
-    #   ii <- colSums(!(t(M[,mc:mlag,drop=FALSE])==sub_key))
-    #   # If ii[j] is 0 and is finite, then  contains a match
-    #   matching_rows = which(ii == 0 & is.finite(ii))
-    #   # Add the predictions (rows of M found above) to predicted_tokens
-    #   predictions <- M[matching_rows, mlag+1]
-    #   # This results in a vector containing the predictions of the next word in the phrase
-    # }
   }
   
   # Create a modified M1 vector excluding punctuation tokens for sampling
@@ -305,31 +283,19 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   # Sampling a token from the observed tokens and weighted frequencies
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
-  next_token <- resample(x = predictions, 1, prob = predictions_weights)
+  # print(length(predictions))
   
-  # # Check whether the next_token is NA
-  # if ( is.na(next_token) == TRUE ){
-  #   next_token1 <- sample(M1_no_punctuation, 1)
-  #   # print(paste("This is the next token:", next_token1))
-  #   key <- c(key, next_token1)
-  #   return(key)
-  # }
-  # 
-  # # If there are NO predictions, sample randomly from M1_no_punctuation
-  # if ( length(predictions) == 0 ){
-  #   next_token1 <- sample(M1_no_punctuation, 1)
-  #   # print(paste("This is the next token:", next_token1))
-  #   key <- c(key, next_token1)
-  #   return(key)
-  # }
-  
-  # If there are NO predictions OR next_token is NA, sample randomly from M1_no_punctuation
-  if ( is.na(next_token) || length(predictions) == 0 ) {
-    next_token <- sample(M1_no_punctuation, 1)
-    # # print(paste("This is the next token:", next_token1))
-    # key <- c(key, next_token1)
-    # return(key)
+  if ( length(predictions) > 0 ){
+    # print("if")
+    next_token <- resample(x=predictions, 1, prob=predictions_weights)
+  } else {
+    # print("else")
+    next_token <- resample(x=M1, 1)
+    # print(next_token)
   }
+  
+  # If next_token is NA sample randomly from M1_no_punctuation
+  next_token <- if ( is.na(next_token)) sample(M1_no_punctuation, 1) else next_token
   # print(paste("This is the next token:", next_token))
   return(next_token)
 }
@@ -431,6 +397,8 @@ print_shakespeare <- function(key, token_compare=b){
 
 # DO WE ACTUALLY NEED TO MAKE THIS A FUNCTION? Probably fine as is, but happy to do so if needed
 
+set.seed(seed=10)
+
 " Choose create_starter_token to initialize the key vector. This code chooses random to start."
 key <- create_starter_token()
 # key <- create_starter_token('romeo', b)
@@ -441,7 +409,7 @@ final_token_key <- -1
 full_stop_token <- create_starter_token('.', b)
 # Enter a loop of the next.word function until a full stop is reached
 # Note that the full-stop token is 2
-while ( final_token_key != full_stop_token){
+while ( final_token_key != full_stop_token ){
   # Use the next.word function from Question 7 to predict the next word
   key <- append(key, next.word(key,M,M1))
   # Identify final value in the vector
