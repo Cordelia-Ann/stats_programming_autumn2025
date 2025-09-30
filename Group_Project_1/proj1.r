@@ -3,7 +3,7 @@
 # Naoise built the functionality to cover #5-6
 # Cordelia built the functionality to implement 7-9.
 
-# setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
+setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
 ############ Question 4 ############
@@ -267,7 +267,7 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
     
     #since sample doesn't need normalised probabilities
     #just use the counts all weighted by the weight for this lag
-    predictions_weights <- append(predictions_weights, rep(w[mc],length(matching_rows)))
+    predictions_weights <- append(predictions_weights, rep((w[mc])*(mlag-mc+1),length(matching_rows)))
   }
   
   # Sampling a token from the observed tokens and weighted frequencies
@@ -289,6 +289,11 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
   # If next_token is NA sample randomly from M1_no_punctuation
   next_token <- if ( is.na(next_token)) sample(M1_no_punctuation, 1) else next_token
+  # If next_token and previous token are BOTH punctuation sample randomly from M1_no_punctuation
+  # Identify previous token
+  if ( tail(key, n=1) %in% punctuation_tokens && next_token %in% punctuation_tokens ){
+    next_token <- sample(M1_no_punctuation, 1)
+  }
   
   # Return the next token in the phrase
   return(next_token)
@@ -382,8 +387,8 @@ print_shakespeare(key)
 # random from the text until a full stop, exclamation, or question is drawn.
 
 # Initialise final_token_key, key vector
-final_token_key <- -1
 key <- c()
+final_token_key <- -1
 # Enter a loop of the next.word function until a full stop, question, or exclamation is reached
 while (! final_token_key %in% stop_tokens){
   # Use the next.word function from Question 7 to predict the next word
