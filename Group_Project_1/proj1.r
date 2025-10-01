@@ -1,24 +1,28 @@
 ### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
+
 # Todd built the data cleaning and filtering to cover #4
 # Naoise built the functionality to cover #5-6
-# Cordelia built the functionality to implement 7-9.
+# Cordelia built the functionality to implement #7-9.
+
+#This code aims to create a sort of small language model that takes the entire works of Shakespeare
+#and uses a Markov Model to predict the next word in a sequence using sample sequences (matrix M) from the text.
+#The model has a limited vocabulary (referred to as the variable "b" in the code) of the top 1000 most
+#common words from his entire text. It looks at the next word in the sequence but also in shorter subsequences
+#and allows probabilistic weighting preference towards the longer sequence lengths.
 
 setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
 ############ Question 4 ############
 
-### TODD is it possible for you to add (a), (b), (c), etc. to your question?
-### This would be good to do when checking whether everything is complete
-
-
-#find the positions in a of all the open and close brackets and store them for use
+#stage directions are annotated in brackets and we want to remove those from consideration
+#find the positions in a of all the open and close brackets and store them for removal
 open.bracket <- grep("[", a, fixed=TRUE) 
 close.bracket <- grep("]", a, fixed=TRUE) 
 
 #store the locations of stage directions and create counters to process through all
 #the open and close brackets
-stage.directions <-list()
+stage.directions <-c()
 open.counter <- 1
 close.counter <- 1 
 
@@ -49,42 +53,23 @@ while (open.counter <= length(open.bracket) && close.counter <= length(close.bra
   }
 }
 #remove duplicates, unlist the stage direction positions to then remove from a
-#there are still 3 open brackets left, unsure what we want to do with them.
-#we could simply remove them during the punctuation section, or ignore.
+#there are some erroneous brackets in the text which could cause duplication in stage.directions
+#hence, we make sure that the vector contains only unique positions
 stage.directions <- unique(stage.directions[stage.directions <= length(a)])
-stage.directions.vector <- unlist(stage.directions)
-a.no.stage <- a[-stage.directions.vector] 
+a.no.stage <- a[-stage.directions] 
 
-#Create a vector to store stage names, a counter to loop through the current text,
-#and a list of words to avoid removing as they should be considered words when compared
-#to their all uppercase versions
-stage.names <-c()
-name.counter <- 1 
-avoid.words <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
+#We want to remove stage names which are all uppercase
+#Create a vector of words to avoid removing as they should be considered words when compared
+#to their all uppercase versions, if the word is not equal to its all uppercase version
+#and if it is in avoid words
 
-#Step through the words in a.no.stage to check for stage names
-while(name.counter <=length(a.no.stage)) {  
-  # this checks if the word is "i" or "a" and skips it
-  if (a.no.stage[name.counter] %in% avoid.words){ 
-    name.counter <- name.counter +1
-    next
-  } 
-  #this checks if the word (not "i" or "a" is equal to its fully uppercase value)
-  if (a.no.stage[name.counter] == toupper(a.no.stage[name.counter])) {        
-    # it then adds the position of this word to our stage.names list 
-    #(which is a list for some reason and not a vector)
-    stage.names[[length(stage.names) + 1]] <- name.counter 
-  } 
-  #increase our index to continue looking
-  name.counter <- name.counter+1 
-}
+special.case <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
 
-#Unlist the stage.names into a vector of positions (still not sure why it 
-#starts as a list not vector). Remove the all caps words from our list of words.
+a.no.names <- a.no.stage[!(a.no.stage==toupper(a.no.stage) & !(a.no.stage %in% special.case))]
+
+#Remove the all caps words from our list of words.
 #Remove all underscores and hypens
 
-stage.names <- unlist(stage.names) 
-a.no.names <- a.no.stage[-stage.names] 
 a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
 a.no.underscore <- gsub("-", "", a.no.underscore, fixed=TRUE)
 
@@ -106,20 +91,12 @@ split_punct <- function(wordlist, punctuations) {
   #Take the words cutting off the end punctuation if true, else, just the word
   #that didnt have any end punctuation
   no.punct <- ifelse(ends.punct, substr(wordlist, 1, nchar(wordlist) - 1), wordlist)
-  #print(no.punct) remove when working correctly
-  #print(length(no.punct)) remove when working correctly
   
   #Take the punctuation off of the words that had them at the end only if true, 
   #else it an empty char in the position. This makes sure it is the same length
   #as no.punct (which is every word plus every word without their end punct)
   punct.only <- ifelse(ends.punct,substr(wordlist, nchar(wordlist), nchar(wordlist)),"")
-  #print(length(punct.only)) remove when working correctly
-  
-  #rbind: Take a sequence of vectors, matrix or data-frame arguments and combine by rows. 
-  #This takes below:
-  #vector1: "word1", "word2", "word3", "word4"   (assume word 4 had an end punct before removal)
-  #vector2:  ""    ,  ""    ,   ""   , "1st punct"
-  #and makes it look like "word1, "", "word2", "", "word3", "", "word4", "1st punct" 
+
   output <- c(rbind(no.punct, punct.only))
   #print(output) remove when working correctly
   
@@ -267,7 +244,7 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
     
     #since sample doesn't need normalised probabilities
     #just use the counts all weighted by the weight for this lag
-    predictions_weights <- append(predictions_weights, rep((w[mc])*(mlag-mc+1),length(matching_rows)))
+    predictions_weights <- append(predictions_weights, rep(w[mc]*((mlag-mc+1)^50),length(matching_rows)))
   }
   
   # Sampling a token from the observed tokens and weighted frequencies
@@ -290,11 +267,8 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   # If next_token is NA sample randomly from M1_no_punctuation
   next_token <- if ( is.na(next_token)) sample(M1_no_punctuation, 1) else next_token
   # If next_token and previous token are BOTH punctuation sample randomly from M1_no_punctuation
-  # Identify previous token
-  if ( tail(key, n=1) %in% punctuation_tokens && next_token %in% punctuation_tokens ){
-    next_token <- sample(M1_no_punctuation, 1)
-  }
-  
+  next_token <- if ( tail(key, n=1) %in% punctuation_tokens && next_token %in% punctuation_tokens ) sample(M1_no_punctuation, 1) else next_token
+
   # Return the next token in the phrase
   return(next_token)
 }
@@ -356,7 +330,15 @@ print_shakespeare <- function(key, token_compare=b){
     #then remove the entries for those marks
     final_sentence <- final_sentence[-punct_locs]
   }
-  return( paste(final_sentence, collapse = " "))
+  # Assign the sentence to a string name
+  string_final_sentence <- paste(final_sentence, collapse = " ")
+  # Replace first instance (first letter) with uppercase letter using sub()
+  # Extract uppercase letter
+  string_final_sentence <- sub(substr(string_final_sentence, 1, 1),
+                               toupper(substr(string_final_sentence, 1, 1)),
+                               string_final_sentence)
+  string_final_sentence <- gsub(" i ", " I ", string_final_sentence)
+  return(string_final_sentence)
 }
 
 # Initialise vector with full stop/question/exclamation,
@@ -369,8 +351,8 @@ for (i in 1:length(full_stop_question_exclamation)){
 }
 
 # Choose create_starter_token to initialize the key vector
-key <- create_starter_token()
-# key <- create_starter_token('romeo', b)
+#key <- create_starter_token()
+key <- create_starter_token('romeo', b)
 # Initialise final_token_key
 final_token_key <- -1
 # Enter a loop of the next.word function until a full stop, question, or exclamation is reached
@@ -378,7 +360,7 @@ while (! final_token_key %in% stop_tokens){
   # Use the next.word function from Question 7 to predict the next word
   key <- append(key, next.word(key,M,M1))
   # Identify final value in the vector
-  final_token_key <- key[length(key)]
+  final_token_key <- tail(key, n=1)
 }
 # Print the generated Shakespeare sentence
 print_shakespeare(key)
@@ -394,7 +376,7 @@ while (! final_token_key %in% stop_tokens){
   # Use the next.word function from Question 7 to predict the next word
   key <- append(key, sample(M1, 1, replace=TRUE))
   # Identify final value in the vector
-  final_token_key <- key[length(key)]
+  final_token_key <- tail(key, n=1)
 }
 # Print the randomly generated sentence
 print_shakespeare(key)
