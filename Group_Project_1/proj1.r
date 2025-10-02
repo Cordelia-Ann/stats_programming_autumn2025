@@ -176,21 +176,16 @@ create_M_from_text <- function(txt, vocab, mlag){
 
 
 
-# Set mlag = 4 (per instructions in assignment)
+#We are setting mlag=4 so that the M matrix we consider is not too large.
 mlag = 4
-# Create M
 M <- create_M_from_text(a.clean.lower, b, mlag)
-# Create M1
+# Create M1, the vector of word tokens for the whole text
+# M1 will be used to randomly generate words when next.word cannot produce a
+# prediction for the next word
 M1 <- match(a.clean.lower, b)
-# Remove NAs from M1
+# Remove NAs from M1. We do not want to predict an NA as our next word
 M1 <- M1[!is.na(M1)]
-a
-# Create a vector of punctuation symbols
-punctuation_vec <- c(",", ".", ";", "!", ":", "?")
-# Initialise the vector of punctuation tokens
-punctuation_tokens <- c()
 
-# The function next.word generates a token for the next word in the phrase
 next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   "
   This function returns a token for the next word in the generated
@@ -203,70 +198,74 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   4. w is the vector of mixture weights
   "
   
-  # Define the length of the key
   len_key <- length(key)
-  # Define mlag through M (so not pulling externally from R environment)
-  # dim(M)[2] gives the number of columns in M (and subtracting one from that gives mlag)
-  mlag <- dim(M)[2]-1
-  # Initialise predictions and weights vectors
+  #redefine mlag again instead of pulling it from the environment
+  mlag <- ncol(M)-1
+  #each potential prediction will have a probability
   predictions <- c()
   predictions_weights <- numeric()
   
-  
-  # Now iterate mc through columns of M -- shortening both key and mc
-  #shorten the key
+  # if the key is longer than the sequences we consider, shorten it
   if (length(key) > mlag) key <- key[(length(key)-mlag+1):length(key)]
-  #if the key is not of length mlag then simply shortening mlag allows
+  #if the key is too short, simply shortening mlag allows
   #everything here to work the same
   if (length(key) < mlag) mlag <- length(key)
   
-  # Define variable mc for shortened versions of len_key
+  # Define variable mc for shortened versions of the key
+  # Suppose mc is 1 and mlag is 4
+  # Then for mc 1, the loop compares the four last columns of len_key to the four
+  # first columns in the M matrix
+  # When mc is 4, the loop compares the last entry in key to the fourth column of M
   for (mc in 1:mlag){
-    # and reduce length of key used in comparison with M
+    # look at the last mc in the key
     sub_key <- key[(len_key-mc+1):len_key]
     
-    # Append the new matches found with each sub-key to ii
-    ii <- colSums(!(t(M[,(mlag-mc+1):mlag,drop=FALSE])==sub_key))
-    # If ii[j] is 0 and is finite, then  contains a match
-    matching_rows = which(ii == 0 & is.finite(ii))
-    # Add the predictions (rows of M found above) to predicted_tokens
-    # This results in a vector containing the predictions of the next word in the phrase
-    # Append new_predictions to pre-existing predictions vector
+    # see what rows of M match the key
+    matching_rows <- colSums(!(t(M[,(mlag-mc+1):mlag,drop=FALSE])==sub_key))
+    # If matching_rows[j] is 0 and is finite, then  row j contains a match
+    matching_rows = which(matching_rows == 0 & is.finite(matching_rows))
+    
+    #now that we know where the key appeared in the text, use the following words as predictions
     predictions <- append(predictions, M[matching_rows, mlag+1])
     
-    #since sample doesn't need normalised probabilities
-    #just use the counts all weighted by the weight for this lag
-    predictions_weights <- append(predictions_weights, rep(w[mc]/length(matching_rows),length(matching_rows)))
+    
+    #all the next words of a specific sequence length are given equal probability
+    #higher/lower weight for longer/shorter sequence lengths can be specified 
+    #through w
+    predictions_weights <- append(predictions_weights,
+                                  rep(w[mc]/length(matching_rows),length(matching_rows))
+                                  )
   }
   
   # Sampling a token from the observed tokens and weighted frequencies
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
-
-  # If length of the predictions vector is greater than zero (there is at least one prediction)
-  # Then resample next_token from the predictions and predictions_weights vector
+  
   if ( length(predictions) > 0 ){
     next_token <- resample(x=predictions, 1, prob=predictions_weights)
-  # There are no predictions, so sample next_token randomly from M1
+    # There are no predictions, so sample next_token randomly from M1
   } else {
     next_token <- resample(x=M1, 1)
   }
   
   # Create a modified M1 vector excluding punctuation tokens for sampling
-  # specific_word_retrieval is not coded into the script yet, so punctuation token vector is hard-coded
-  punctuation_tokens <- c(1, 2, 11, 23, 46, 14)
+  # find the tokens for the punctuation vectors
+  punctuation_tokens <- which(!is.na(match(b, punctuation.vec)))
   M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
-  # If next_token is NA sample randomly from M1_no_punctuation
+  
+  #if we randomly sampled something not in the vocab we'll just pick randomly from M1
   next_token <- if ( is.na(next_token)) sample(M1_no_punctuation, 1) else next_token
-  # If next_token and previous token are BOTH punctuation sample randomly from M1_no_punctuation
-  next_token <- if ( tail(key, n=1) %in% punctuation_tokens && next_token %in% punctuation_tokens ) sample(M1_no_punctuation, 1) else next_token
 
-  # Return the next token in the phrase
+  #we dont want two punctuations following each other
+  if ( key[length(key)] %in% punctuation_tokens && next_token %in% punctuation_tokens ){
+    next_token <- sample(M1_no_punctuation, 1) 
+  }
+  
   return(next_token)
 }
 
-############ Question 8 ############
-
+#we need a word token to start off the key sequence so we can pick one randomly
+#or the user can pick a starter word
 create_starter_token <- function(starter_word = NULL, vocab = b){
   "
   This function gives back the token for the word supplied, if it's in the
@@ -285,76 +284,58 @@ create_starter_token <- function(starter_word = NULL, vocab = b){
   }
   
   #either no starter word was given or it was not in the vocab
-  #so randomly sample one from the vocab
-  #but don't sample the words that are punctuations
-  punct_vec = unlist(strsplit("!,.?;:¬",""))
-  valid_locs <- which( !(vocab %in% punct_vec) )
+  #so randomly sample one from the vocab except punctuations
+  valid_locs <- which( !(vocab %in% punctuation.vec) )
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
-  # Return a randomly sampled function (ignoring punctuation)
   return( resample(valid_locs, 1) )
 }
 
-############ Question 9 ############
-
-print_shakespeare <- function(key, token_compare=b){
+#when the model has predicted text we want to turn it into a readable sentence
+print_sentence <- function(key, vocab=b){
   "
-  This function converts the final key (vector of tokens) into written text.
+  This function converts the final key (vector of tokens) into capitalise written text.
   There are no spaces between words and associated punctuation.
   
   Description of Parameters:
   1. key is the vector of generated word-tokens
-  2. token_compare is the vector matching word tokens to words
+  2. vocab is the vector matching word tokens to words
   "
-  # Initialize sentence vector (to correspond with key)
-  final_sentence <- token_compare[key]
+  sentence <- vocab[key]
   
-  #this function turns a vector of words into a single sentence
-  #it ensures there isn't punctuation surround by spaces
+  #this ensures there isn't punctuation surround by spaces
   #e.g. "the cat , whose..."
-  punct_vec = unlist(strsplit("!,.?;:¬",""))
   #find where the punctuation marks are
-  punct_locs <- which(final_sentence %in% punct_vec)
+  punct_locs <- which(sentence %in% punctuation.vec)
   if(length(punct_locs) >0){
     #join the punctuation marks onto the words proceeding them
-    #i found out that paste works this way by experimenting
-    final_sentence[punct_locs-1] <- paste(final_sentence[punct_locs-1], final_sentence[punct_locs], sep = "")
+    #this will paste the vectors element-wise
+    sentence[punct_locs-1] <- paste(
+      sentence[punct_locs-1], sentence[punct_locs], sep = "")
     #then remove the entries for those marks
-    final_sentence <- final_sentence[-punct_locs]
+    sentence <- sentence[-punct_locs]
   }
-  # Assign the sentence to a string name
-  string_final_sentence <- paste(final_sentence, collapse = " ")
-  # Replace first instance (first letter) with uppercase letter using sub()
+  sentence <- paste(sentence, collapse = " ")
+  # Replace first instance (first letter) with uppercase letter
   # Extract uppercase letter
-  string_final_sentence <- sub(substr(string_final_sentence, 1, 1),
-                               toupper(substr(string_final_sentence, 1, 1)),
-                               string_final_sentence)
-  string_final_sentence <- gsub(" i ", " I ", string_final_sentence)
-  return(string_final_sentence)
+  sentence <- sub(substr(sentence, 1, 1),
+                               toupper(substr(sentence, 1, 1)),
+                               sentence)
+  sentence <- gsub(" i ", " I ", sentence)
+  return(sentence)
 }
 
-# Initialise vector with full stop/question/exclamation,
-# and the stop_tokens vector
-full_stop_question_exclamation <- unlist(strsplit("!.?",""))
-stop_tokens <- c()
-for (i in 1:length(full_stop_question_exclamation)){
-  stop_tokens <- append(stop_tokens,
-                        create_starter_token(full_stop_question_exclamation[i], b))
-}
 
-# Choose create_starter_token to initialize the key vector
+#We are now going to generate words from the model until we hit a ?, ! or .
+# we then pretty print out the generated sentence
 
-#key <- create_starter_token()
+stop_tokens <- which(!is.na(match(b, unlist(strsplit("!.?", ""))  )))
+# We have chosen to start with the word Romeo
 key <- create_starter_token('romeo', b)
-# Initialise final_token_key
-final_token_key <- -1
-# Enter a loop of the next.word function until a full stop, question, or exclamation is reached
-while (! final_token_key %in% stop_tokens){
-  # Use the next.word function from Question 7 to predict the next word
-  key <- append(key, next.word(key,M,M1))
-  # Identify final value in the vector
-  final_token_key <- tail(key, n=1)
+next_token <- -1
+weights <- (1:mlag)^2
+while (! next_token %in% stop_tokens){
+  next_token <- next.word(key,M,M1, w = weights)
+  key <- append(key, next_token)
 }
-# Print the generated Shakespeare sentence
-print_shakespeare(key)
-
+print_sentence(key)
