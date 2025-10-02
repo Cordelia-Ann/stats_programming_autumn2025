@@ -6,6 +6,7 @@
 # We all collectively debugged and reviewed each others sections 
 
 # This code aims to create a sort of small language model that takes the entire works of Shakespeare
+#referred to as "a", for short
 # and uses a Markov Model to predict the next word in a given sequence, the key, using sentences from the text.
 # The model has a limited vocabulary (b in the code) of the top 1000 most common words  
 # It breaks down the text into sequences of length, say mlag,
@@ -31,14 +32,9 @@ stage.directions <-c()
 open.counter <- 1
 close.counter <- 1 
 
-#this checks while the length of the open counter is less than or equal to the total 
-#number of open brackets and while close counter is less than or equal to the total
-#number of close brackets, we move along the positions and takes all the positions
-#between two brackets if they are within 100 positions of each other, else it skips
-#this should assess only the first close bracket reached after the open bracket.
-
 # go through all the locations of [ or ] and
-# if there is a [ followed by in a 100 or less
+# if there is a [ followed by a ] nearby by, hardcoded as within 100 positions, 
+#then we remove all text in between
 
 while (open.counter <= length(open.bracket) && close.counter <= length(close.bracket)) { 
   
@@ -51,7 +47,7 @@ while (open.counter <= length(open.bracket) && close.counter <= length(close.bra
     # Check if the close bracket within 100 positions of the open
     stage.gap <- close.position - open.position
     if (stage.gap <= 100) {
-      #Add the position to the end of the stage direction list then increase both counters
+      #record the positions of the stage directions and then increase both counters
       stage.directions <- c(stage.directions, open.position:close.position)
       open.counter <- open.counter + 1
       close.counter <- close.counter + 1
@@ -61,61 +57,49 @@ while (open.counter <= length(open.bracket) && close.counter <= length(close.bra
     }
   }
 }
-#remove duplicates, unlist the stage direction positions to then remove from a
 #there are some erroneous brackets in the text which could cause duplication in stage.directions
 #hence, we make sure that the vector contains only unique positions
 stage.directions <- unique(stage.directions[stage.directions <= length(a)])
 a.no.stage <- a[-stage.directions] 
 
 #We want to remove stage names which are all uppercase
-#Create a vector of words to avoid removing as they should be considered words when compared
-#to their all uppercase versions, if the word is not equal to its all uppercase version
-#and if it is in avoid words
+#"A" and "I" are exceptions as they are technically already uppercase outside of stage names
 
 special.case <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
 
 a.no.names <- a.no.stage[!(a.no.stage==toupper(a.no.stage) & !(a.no.stage %in% special.case))]
 
-#Remove the all caps words from our list of words.
 #Remove all underscores and hypens
-
 a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
 a.no.underscore <- gsub("-", "", a.no.underscore, fixed=TRUE)
 
-#this is a vector of all punctuation to check for in a.no.underscore
-punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 
 #create function which will take a word vector and a punctuation vector
 #as inputs, and takes any punctuation off the ends of words
 #and outputs a new vector with the punctuation as standalone words
 #in the position immediately after the word they were attached to.
 split_punct <- function(txt, punctuations) {
-  #collapse the punctuation vector into a single string 
+  #make a regex pattern to find punctuation marks
   collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]$")
   
-  #Find positions where word has end punctuation
+  #Find positions where there is punction
   ends.punct <- grepl(collapsed.punct, txt)
   
-  #Take the words cutting off the end punctuation if true, else, just the word
-  #that didnt have any end punctuation
+  #Trim off the punctuation where its present
   no.punct <- ifelse(ends.punct, substr(txt, 1, nchar(txt) - 1), txt)
   
-  #Take the punctuation off of the words that had them at the end only if true, 
-  #else it an empty char in the position. This makes sure it is the same length
-  #as no.punct (which is every word plus every word without their end punct)
+  #record the punctuation that followed the word, if any
   punct.only <- ifelse(ends.punct,substr(txt, nchar(txt), nchar(txt)),"")
-
+  #recombine the words with their trailing punctuation
   output <- c(rbind(no.punct, punct.only))
 
-  #Remove all the empty strings from the output
   output[output != ""]
 }
 
-#Create new word vector with end punctuation split into their own words, using the
-#most recently modified text (a.no.underscore), and the vector of all desired 
-#punctuation to split
-#Then make all words lowercase
+#split off any punctuation
+punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 a.punct <- split_punct(a.no.underscore, punctuation.vec) 
+#Then make all words lowercase
 a.clean.lower <- tolower(a.punct)
 
 ############ Question 5 ############
