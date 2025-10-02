@@ -102,10 +102,6 @@ a.punct <- split_punct(a.no.underscore, punctuation.vec)
 #Then make all words lowercase
 a.clean.lower <- tolower(a.punct)
 
-############ Question 5 ############
-
-### NAOISE is it possible for you to add (a), (b), (c), etc. to your question?
-### This would be good to do when checking whether everything is complete
 
 create_b_from_text <- function(txt, K_most_common_words =1000){
   unique_words = unique(txt);
