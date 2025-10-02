@@ -103,8 +103,14 @@ a.punct <- split_punct(a.no.underscore, punctuation.vec)
 a.clean.lower <- tolower(a.punct)
 
 
+#Now we make "b", the vocabulary of our model which is the top 1000 most 
+#common words in the text
 create_b_from_text <- function(txt, K_most_common_words =1000){
-  unique_words = unique(txt);
+  #takes in a text as a vector of strings and 
+  #returns a vector b that contains the top K most common words in the text
+  # b will then be the vocabulary for model later on
+  
+  unique_words = unique(txt)
   # this replaces every word in the text, with a number token
   # the word is replaced by the location/index of that word in unique_words
   txt_fully_tokenised = match(txt, unique_words)
@@ -112,55 +118,55 @@ create_b_from_text <- function(txt, K_most_common_words =1000){
   #token/index counts
   #tabulate takes in the text tokenised as numbers 
   #and spits out the counts for each number, in order of that number
-  #----------- change example later
-  #i.e #times "1" appears, #times "2" appears, ...
-  # the token "16" (representing "the") occurs 6 times in the M1
-  #so position 16 of the output is 6
   token_counts = tabulate(txt_fully_tokenised)
   
   #order tells you what way to rearrange the locations so that 
   #the values are in decreasing order - biggest to smallest
   #in our case it orders the tokens by their count
   #so we can just take the first K of them 
+  
+  top_tokens = order(token_counts, decreasing = TRUE)[1:K_most_common_words]
   #the k most common tokens can then tell us the k most common words
-  b = unique_words[
-    order(token_counts, decreasing = T)[1:K_most_common_words]
-  ]
+  b = unique_words[top_tokens]
   return(b)
 }
-
+#take in the cleaned text and spit out the vocab
 b <- create_b_from_text(a.clean.lower, 1000)
 
-############ Question 6 ############
 
-create_M_from_text <- function(txt, b, mlag){
-  #so we are tokenising the text based on the vector b
-  #if the word is not in b, not one of the K most common words,
-  # it is represented as NA
-  #if the word is in b, it is represented by its location in b
-  a_tokenised = match(a.clean.lower, b)
+#Now we create a matrix M of all word sequences of a specified length, mlag,
+#and the next word following each sequence in order to train our model
+#for storage purposes, we tokenise the text in M as numbers
+create_M_from_text <- function(txt, vocab, mlag){
+  #this takes in the text as a vector of strings
+  #the vocab of the model
+  #and mlag, the max length of word sequences considered
   
-  n = length(a_tokenised) #total number of words
+  #so we are tokenising the text based on the vector vocab
+  #if the word is not in vocab, 
+  # it is represented as NA
+  #if the word is in vocab, it is represented by its location in vocab
+  txt = match(txt, vocab)
+  
+  n = length(txt) #total number of words
   # I thought it was easier to manipulate M as an array first
   # remember that the length of each of column is n-mlag
   col_length = n-mlag
   M = array(NA, col_length*(mlag+1) )
   
   #M can be viewed as sliding a window of length col_length
-  #over the vector a_tokenised
-  #the first column of M is the first col_length elements of a_tokenised
+  #over the vector txt
+  #the first column of M is the first col_length elements of txt
   #the second column is the next col_length elements starting at the 2nd element
   #the ith column is the next col_length elements starting at the ith element
   
-  #you don't like loops but this loop has only mlag iterations
-  #and each iteration has constant time operations
   for (i in 0:mlag){
     #the first col_length elements in M are column 1
     #the elements in position col_length+1  to 2*col_length are column 2
     column_i_indices = (i*(col_length) +1) : ((i+1)*col_length)
     #now that we know where column i is in M,
     #we insert the next tokens in the window
-    M[ column_i_indices  ]  = a_tokenised[i + 1:col_length ]
+    M[ column_i_indices  ]  = txt[i + 1:col_length ]
   }
   
   #now turn M from an array into a matrix
@@ -169,7 +175,6 @@ create_M_from_text <- function(txt, b, mlag){
 }
 
 
-############ Question 7 ############
 
 # Set mlag = 4 (per instructions in assignment)
 mlag = 4
