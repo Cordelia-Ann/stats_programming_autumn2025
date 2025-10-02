@@ -3,17 +3,22 @@
 # Todd built the data cleaning and filtering to cover #4
 # Naoise built the functionality to cover #5-6
 # Cordelia built the functionality to implement #7-9.
+# We all collectively debugged and reviewed each others sections 
 
-#This code aims to create a sort of small language model that takes the entire works of Shakespeare
-#and uses a Markov Model to predict the next word in a sequence using sample sequences (matrix M) from the text.
-#The model has a limited vocabulary (referred to as the variable "b" in the code) of the top 1000 most
-#common words from his entire text. It looks at the next word in the sequence but also in shorter subsequences
-#and allows probabilistic weighting preference towards the longer sequence lengths.
+# This code aims to create a sort of small language model that takes the entire works of Shakespeare
+# and uses a Markov Model to predict the next word in a given sequence, the key, using sentences from the text.
+# The model has a limited vocabulary (b in the code) of the top 1000 most common words  
+# It breaks down the text into sequences of length, say mlag,
+# and assigns them a uniform probability of being the next word
+# It repeats this for words sequences of length shorter than mlag
+# the model then chooses the next word according to these probability, with a parameter w
+# that allows for preferences for the words suggested by longer/shorter sequences
 
-setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
+# setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
+# setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
+rm(list=ls())
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
-############ Question 4 ############
 
 #stage directions are annotated in brackets and we want to remove those from consideration
 #find the positions in a of all the open and close brackets and store them for removal
@@ -31,6 +36,10 @@ close.counter <- 1
 #number of close brackets, we move along the positions and takes all the positions
 #between two brackets if they are within 100 positions of each other, else it skips
 #this should assess only the first close bracket reached after the open bracket.
+
+# go through all the locations of [ or ] and
+# if there is a [ followed by in a 100 or less
+
 while (open.counter <= length(open.bracket) && close.counter <= length(close.bracket)) { 
   
   open.position <- open.bracket[open.counter]
@@ -80,26 +89,24 @@ punctuation.vec <- c(",", ".", ";", "!", ":", "?")
 #as inputs, and takes any punctuation off the ends of words
 #and outputs a new vector with the punctuation as standalone words
 #in the position immediately after the word they were attached to.
-#maybe "wordlist" could be better named "wordvector" or something
-split_punct <- function(wordlist, punctuations) {
+split_punct <- function(txt, punctuations) {
   #collapse the punctuation vector into a single string 
   collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]$")
   
   #Find positions where word has end punctuation
-  ends.punct <- grepl(collapsed.punct, wordlist)
+  ends.punct <- grepl(collapsed.punct, txt)
   
   #Take the words cutting off the end punctuation if true, else, just the word
   #that didnt have any end punctuation
-  no.punct <- ifelse(ends.punct, substr(wordlist, 1, nchar(wordlist) - 1), wordlist)
+  no.punct <- ifelse(ends.punct, substr(txt, 1, nchar(txt) - 1), txt)
   
   #Take the punctuation off of the words that had them at the end only if true, 
   #else it an empty char in the position. This makes sure it is the same length
   #as no.punct (which is every word plus every word without their end punct)
-  punct.only <- ifelse(ends.punct,substr(wordlist, nchar(wordlist), nchar(wordlist)),"")
+  punct.only <- ifelse(ends.punct,substr(txt, nchar(txt), nchar(txt)),"")
 
   output <- c(rbind(no.punct, punct.only))
-  #print(output) remove when working correctly
-  
+
   #Remove all the empty strings from the output
   output[output != ""]
 }
@@ -192,7 +199,7 @@ M <- create_M_from_text(a.clean.lower, b, mlag)
 M1 <- match(a.clean.lower, b)
 # Remove NAs from M1
 M1 <- M1[!is.na(M1)]
-
+a
 # Create a vector of punctuation symbols
 punctuation_vec <- c(",", ".", ";", "!", ":", "?")
 # Initialise the vector of punctuation tokens
@@ -244,7 +251,7 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
     
     #since sample doesn't need normalised probabilities
     #just use the counts all weighted by the weight for this lag
-    predictions_weights <- append(predictions_weights, rep(w[mc]*((mlag-mc+1)^50),length(matching_rows)))
+    predictions_weights <- append(predictions_weights, rep(w[mc]/length(matching_rows),length(matching_rows)))
   }
   
   # Sampling a token from the observed tokens and weighted frequencies
@@ -351,6 +358,7 @@ for (i in 1:length(full_stop_question_exclamation)){
 }
 
 # Choose create_starter_token to initialize the key vector
+
 #key <- create_starter_token()
 key <- create_starter_token('romeo', b)
 # Initialise final_token_key
@@ -365,18 +373,3 @@ while (! final_token_key %in% stop_tokens){
 # Print the generated Shakespeare sentence
 print_shakespeare(key)
 
-# Compare the results to ‘sentences’ obtained by simply drawing common words at
-# random from the text until a full stop, exclamation, or question is drawn.
-
-# Initialise final_token_key, key vector
-key <- c()
-final_token_key <- -1
-# Enter a loop of the next.word function until a full stop, question, or exclamation is reached
-while (! final_token_key %in% stop_tokens){
-  # Use the next.word function from Question 7 to predict the next word
-  key <- append(key, sample(M1, 1, replace=TRUE))
-  # Identify final value in the vector
-  final_token_key <- tail(key, n=1)
-}
-# Print the randomly generated sentence
-print_shakespeare(key)
