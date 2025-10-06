@@ -7,4 +7,4 @@
 
 
 
-#setwd("")
+setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_2\\stats_programming_autumn2025\\Group_Project_2")
