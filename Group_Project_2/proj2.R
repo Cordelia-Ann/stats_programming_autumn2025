@@ -58,7 +58,6 @@ get_net <- function(beta, nc=15){
     network[[i]] <- c( network[[i]], contacts  )
     # add person i into all of its contacts' contacts
     network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
-    cat(network[[i]], "\n")
   }
   #take out the placeholder NA, without leaving attributes from na.omit
   network <- lapply(network, function(x) na.omit(x) )
@@ -67,7 +66,7 @@ get_net <- function(beta, nc=15){
 }
 
 set.seed(2025)
-n =10; h_max = 5;beta <- runif(n)
+n =1000; h_max = 5;beta <- runif(n)
 
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 
