@@ -1,23 +1,43 @@
 #Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199
 #Naoise built the functionality to cover #5-6. Todd built the data cleaning and filtering to cover #4. Cordelia built the functionality to implement 7-9. Everyone collaborated in assessing and addressing errors throughout, while trying to develop logical methods to solve problems.
 setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_1\\stats_programming_autumn2025\\Group_Project_1") ## comment out of submitted
+### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
+
+# Todd built the data cleaning and filtering to cover #4
+# Naoise built the functionality to cover #5-6
+# Cordelia built the functionality to implement #7-9.
+# We all collectively debugged and reviewed each others sections 
+
+# This code aims to create a sort of small language model that takes the entire works of Shakespeare
+#referred to as "a", for short
+# and uses a Markov Model to predict the next word in a given sequence, the key, using sentences from the text.
+# The model has a limited vocabulary (b in the code) of the top 1000 most common words  
+# It breaks down the text into sequences of length, say mlag,
+# and assigns them a uniform probability of being the next word
+# It repeats this for words sequences of length shorter than mlag
+# the model then chooses the next word according to these probability, with a parameter w
+# that allows for preferences for the words suggested by longer/shorter sequences
+
+# setwd("/Users/cordeliabryant/Desktop/Stats_OR_MSc/Stats_Programming_Term1/stats_programming_autumn2025/Group_Project_1")
+# setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
 a <- scan("shakespeare.txt",what="character",skip=83,nlines=196043-83, fileEncoding="UTF-8")
 
-#find the positions in a of all the open and close brackets and store them for use
+
+#stage directions are annotated in brackets and we want to remove those from consideration
+#find the positions in a of all the open and close brackets and store them for removal
 open.bracket <- grep("[", a, fixed=TRUE) 
 close.bracket <- grep("]", a, fixed=TRUE) 
 
 #store the locations of stage directions and create counters to process through all
 #the open and close brackets
-stage.directions <-list()
+stage.directions <-c()
 open.counter <- 1
 close.counter <- 1 
 
-#this checks while the length of the open counter is less than or equal to the total 
-#number of open brackets and while close counter is less than or equal to the total
-#number of close brackets, we move along the positions and takes all the positions
-#between two brackets if they are within 100 positions of each other, else it skips
-#this should assess only the first close bracket reached after the open bracket.
+# go through all the locations of [ or ] and
+# if there is a [ followed by a ] nearby by, hardcoded as within 100 positions, 
+#then we remove all text in between
+
 while (open.counter <= length(open.bracket) && close.counter <= length(close.bracket)) { 
   
   open.position <- open.bracket[open.counter]
@@ -29,7 +49,7 @@ while (open.counter <= length(open.bracket) && close.counter <= length(close.bra
     # Check if the close bracket within 100 positions of the open
     stage.gap <- close.position - open.position
     if (stage.gap <= 100) {
-      #Add the position to the end of the stage direction list then increase both counters
+      #record the positions of the stage directions and then increase both counters
       stage.directions <- c(stage.directions, open.position:close.position)
       open.counter <- open.counter + 1
       close.counter <- close.counter + 1
@@ -39,193 +59,136 @@ while (open.counter <= length(open.bracket) && close.counter <= length(close.bra
     }
   }
 }
-#remove duplicates, unlist the stage direction positions to then remove from a
-#there are still 3 open brackets left, unsure what we want to do with them.
-#we could simply remove them during the punctuation section, or ignore.
+#there are some erroneous brackets in the text which could cause duplication in stage.directions
+#hence, we make sure that the vector contains only unique positions
 stage.directions <- unique(stage.directions[stage.directions <= length(a)])
-stage.directions.vector <- unlist(stage.directions)
-a.no.stage <- a[-stage.directions.vector] 
+a.no.stage <- a[-stage.directions] 
 
-#Create a vector to store stage names, a counter to loop through the current text,
-#and a list of words to avoid removing as they should be considered words when compared
-#to their all uppercase versions
-stage.names <-c()
-name.counter <- 1 
-avoid.words <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
+#We want to remove stage names which are all uppercase
+#"A" and "I" are exceptions as they are technically already uppercase outside of stage names
 
-#Step through the words in a.no.stage to check for stage names
-while(name.counter <=length(a.no.stage)) {  
-  # this checks if the word is "i" or "a" and skips it
-  if (a.no.stage[name.counter] %in% avoid.words){ 
-      name.counter <- name.counter +1
-  next
-    } 
-  #this checks if the word (not "i" or "a" is equal to its fully uppercase value)
-  if (a.no.stage[name.counter] == toupper(a.no.stage[name.counter])) {        
-    # it then adds the position of this word to our stage.names list 
-    #(which is a list for some reason and not a vector)
-    stage.names[[length(stage.names) + 1]] <- name.counter 
-  } 
-  #increase our index to continue looking
-  name.counter <- name.counter+1 
-}
+special.case <- c("a","i","A","I","I,","I.","I;", "I!", "I:", "I?") 
 
-#Unlist the stage.names into a vector of positions (still not sure why it 
-#starts as a list not vector). Remove the all caps words from our list of words.
+a.no.names <- a.no.stage[!(a.no.stage==toupper(a.no.stage) & !(a.no.stage %in% special.case))]
+
 #Remove all underscores and hypens
-
-stage.names <- unlist(stage.names) 
-a.no.names <- a.no.stage[-stage.names] 
 a.no.underscore <- gsub("_", "", a.no.names, fixed=TRUE)
 a.no.underscore <- gsub("-", "", a.no.underscore, fixed=TRUE)
 
-#this is a vector of all punctuation to check for in a.no.underscore
-punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 
 #create function which will take a word vector and a punctuation vector
 #as inputs, and takes any punctuation off the ends of words
 #and outputs a new vector with the punctuation as standalone words
 #in the position immediately after the word they were attached to.
-#maybe "wordlist" could be better named "wordvector" or something
-split_punct <- function(wordlist, punctuations) {
-  #collapse the punctuation vector into a single string 
+split_punct <- function(txt, punctuations) {
+  #make a regex pattern to find punctuation marks
   collapsed.punct <- paste0("[", paste(punctuations, collapse = ""), "]$")
   
-  #Find positions where word has end punctuation
-  ends.punct <- grepl(collapsed.punct, wordlist)
+  #Find positions where there is punction
+  ends.punct <- grepl(collapsed.punct, txt)
   
-  #Take the words cutting off the end punctuation if true, else, just the word
-  #that didnt have any end punctuation
-  no.punct <- ifelse(ends.punct, substr(wordlist, 1, nchar(wordlist) - 1), wordlist)
-  #print(no.punct) remove when working correctly
-  #print(length(no.punct)) remove when working correctly
+  #Trim off the punctuation where its present
+  no.punct <- ifelse(ends.punct, substr(txt, 1, nchar(txt) - 1), txt)
   
-  #Take the punctuation off of the words that had them at the end only if true, 
-  #else it an empty char in the position. This makes sure it is the same length
-  #as no.punct (which is every word plus every word without their end punct)
-  punct.only <- ifelse(ends.punct,substr(wordlist, nchar(wordlist), nchar(wordlist)),"")
-  #print(length(punct.only)) remove when working correctly
-  
-  #rbind: Take a sequence of vectors, matrix or data-frame arguments and combine by rows. 
-  #This takes below:
-  #vector1: "word1", "word2", "word3", "word4"   (assume word 4 had an end punct before removal)
-  #vector2:  ""    ,  ""    ,   ""   , "1st punct"
-  #and makes it look like "word1, "", "word2", "", "word3", "", "word4", "1st punct" 
+  #record the punctuation that followed the word, if any
+  punct.only <- ifelse(ends.punct,substr(txt, nchar(txt), nchar(txt)),"")
+  #recombine the words with their trailing punctuation
   output <- c(rbind(no.punct, punct.only))
-  #print(output) remove when working correctly
   
-  #Remove all the empty strings from the output
   output[output != ""]
 }
 
-#Create new word vector with end punctuation split into their own words, using the
-#most recently modified text (a.no.underscore), and the vector of all desired 
-#punctuation to split
-#Then make all words lowercase
+#split off any punctuation
+punctuation.vec <- c(",", ".", ";", "!", ":", "?") 
 a.punct <- split_punct(a.no.underscore, punctuation.vec) 
+#Then make all words lowercase
 a.clean.lower <- tolower(a.punct)
 
-#setwd(r"(C:\Users\Naoise Daly\OneDrive - University of Edinburgh\stat prog\stats_programming_autumn2025\Group_Project_1)")
+
+#Now we make "b", the vocabulary of our model which is the top 1000 most 
+#common words in the text
+create_b_from_text <- function(txt, K_most_common_words =1000){
+  #takes in a text as a vector of strings and 
+  #returns a vector b that contains the top K most common words in the text
+  # b will then be the vocabulary for model later on
+  
+  unique_words = unique(txt)
+  # this replaces every word in the text, with a number token
+  # the word is replaced by the location/index of that word in unique_words
+  txt_fully_tokenised = match(txt, unique_words)
+  
+  #token/index counts
+  #tabulate takes in the text tokenised as numbers 
+  #and spits out the counts for each number, in order of that number
+  token_counts = tabulate(txt_fully_tokenised)
+  
+  #order tells you what way to rearrange the locations so that 
+  #the values are in decreasing order - biggest to smallest
+  #in our case it orders the tokens by their count
+  #so we can just take the first K of them 
+  
+  top_tokens = order(token_counts, decreasing = TRUE)[1:K_most_common_words]
+  #the k most common tokens can then tell us the k most common words
+  b = unique_words[top_tokens]
+  return(b)
+}
+#take in the cleaned text and spit out the vocab
+b <- create_b_from_text(a.clean.lower, 1000)
 
 
-############ Q5 ############
-#------------- example data - Delete later
-#a <- tolower(scan("shakespeare.txt",what="character",skip=83,nlines=196043-83,
-#                  fileEncoding="UTF-8"))[4:108]
-
-unique_words = unique(a.clean.lower);
-length(a.clean.lower);length(unique_words)
-# this replaces every word in the a, the text, with a number token
-# the word is replaced by the location/index of that word in unique_words
-M1 = match(a.clean.lower, unique_words)
-#----------change example later
-#for example, the first 24 words are unique but the 25th is a repetition of
-# "might" which already occurred as the 11th word 
-# so the 25th entry will have the token "11"
-cbind(a.clean.lower, M1)[11:25,]
-
-#the model will use only the K most common words as part of its vocabulary
-K_most_common_words = 1000
-
-#token/index counts
-#tabulate takes in the text tokenised as numbers 
-#and spits out the counts for each number, in order of that number
-#----------- change example later
-#i.e #times "1" appears, #times "2" appears, ...
-# the token "16" (representing "the") occurs 6 times in the M1
-#so position 16 of the output is 6
-token_counts = tabulate(M1)
-
-#order tells you what way to rearrange the locations so that 
-#the values are in decreasing order - biggest to smallest
-#in our case it orders the tokens by their count
-#so we can just take the first K of them 
-#the k most common tokens can then tell us the k most common words
-b = unique_words[
-  order(token_counts, decreasing = T)[1:K_most_common_words]
-]
-head(b);sum(a.clean.lower == b[1]) #'the' is the most common word
-
-#save space by deleting arrays we're done with
-rm(token_counts, unique_words)
-
-
-
-######### Q6 #############
-
-#so we are tokenising the text (for a second time) based on the vector b
-# each word in the text will be represented by a number token or NA
-#if the word is not in b, not one of the K most common words,
-# it is represented as NA
-#if the word is in b, it is represented by its location in b
-a_tokenised = match(a.clean.lower, b)
-
-
-#----------- example data - delete later
-# a_tokenised = strsplit(
-#   "A cat sat on the mat last night", " "
-# )[[1]]
-
-mlag = 4
-
-n = length(a_tokenised) #total number of words
-# I thought it was easier to manipulate M as an array first
-# remember that the length of each of column is n-mlag
-col_length = n-mlag
-M = array(NA, col_length*(mlag+1) )
-
-#M can be viewed as sliding a window of length col_length
-#over the vector a_tokenised
-#the first column of M is the first col_length elements of a_tokenised
-#the second column is the next col_length elements starting at the 2nd element
-#the ith column is the next col_length elements starting at the ith element
-
-#you don't like loops but this loop has only mlag iterations
-#and each iteration has constant time operations
-for (i in 0:mlag){
-  #the first col_length elements in M are column 1
-  #the elements in position col_length+1  to 2*col_length are column 2
-  column_i_indices = (i*(col_length) +1) : ((i+1)*col_length)
-  #now that we know where column i is in M,
-  #we insert the next tokens in the window
-  M[ column_i_indices  ]  = a_tokenised[i + 1:col_length ]
+#Now we create a matrix M of all word sequences of a specified length, mlag,
+#and the next word following each sequence in order to train our model
+#for storage purposes, we tokenise the text in M as numbers
+create_M_from_text <- function(txt, vocab, mlag){
+  #this takes in the text as a vector of strings
+  #the vocab of the model
+  #and mlag, the max length of word sequences considered
+  
+  #so we are tokenising the text based on the vector vocab
+  #if the word is not in vocab, 
+  # it is represented as NA
+  #if the word is in vocab, it is represented by its location in vocab
+  txt = match(txt, vocab)
+  
+  n = length(txt) #total number of words
+  # I thought it was easier to manipulate M as an array first
+  # remember that the length of each of column is n-mlag
+  col_length = n-mlag
+  M = array(NA, col_length*(mlag+1) )
+  
+  #M can be viewed as sliding a window of length col_length
+  #over the vector txt
+  #the first column of M is the first col_length elements of txt
+  #the second column is the next col_length elements starting at the 2nd element
+  #the ith column is the next col_length elements starting at the ith element
+  
+  for (i in 0:mlag){
+    #the first col_length elements in M are column 1
+    #the elements in position col_length+1  to 2*col_length are column 2
+    column_i_indices = (i*(col_length) +1) : ((i+1)*col_length)
+    #now that we know where column i is in M,
+    #we insert the next tokens in the window
+    M[ column_i_indices  ]  = txt[i + 1:col_length ]
+  }
+  
+  #now turn M from an array into a matrix
+  # by default the matrix functions fills in column by column
+  return( matrix(M, n-mlag, mlag+1) )
 }
 
-#now turn M from an array into a matrix
-# by default the matrix functions fills in column by column
-M <- matrix(M, n-mlag, mlag+1)
-dim(M)
 
 
-"
-Question 7
-
-"
-
-# The function next.word generates a token for the next word in the phrase
+#We are setting mlag=4 so that the M matrix we consider is not too large.
+mlag = 4
+M <- create_M_from_text(a.clean.lower, b, mlag)
+# Create M1, the vector of word tokens for the whole text
+# M1 will be used to randomly generate words when next.word cannot produce a
+# prediction for the next word
+M1 <- match(a.clean.lower, b)
+# Remove NAs from M1. We do not want to predict an NA as our next word
+M1 <- M1[!is.na(M1)]
 
 next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
-  
   "
   This function returns a token for the next word in the generated
   Shakespearean phrase.
@@ -237,195 +200,144 @@ next.word <- function(key,M,M1,w=rep(1,ncol(M)-1)) {
   4. w is the vector of mixture weights
   "
   
-  ## Moderate length of key (compare to length of rows in M)
-  # Calculate length of key and length of M (number of columns)
   len_key <- length(key)
-  len_M <- dim(M)[2]
-  # If key has more (or equal) words to M1, shorten key
-  if (len_key >= len_M) {
-    # Exclude beginning tokens from key vector
-    key <- key[((len_key+1) - len_M):len_key]
-  } else {
-    key <- key
+  #redefine mlag again instead of pulling it from the environment
+  mlag <- ncol(M)-1
+  #each potential prediction will have a probability
+  predictions <- c()
+  predictions_weights <- numeric()
+  
+  # if the key is longer than the sequences we consider, shorten it
+  if (length(key) > mlag) key <- key[(length(key)-mlag+1):length(key)]
+  #if the key is too short, simply shortening mlag allows
+  #everything here to work the same
+  if (length(key) < mlag) mlag <- length(key)
+  
+  # Define variable mc for shortened versions of the key
+  # Suppose mc is 1 and mlag is 4
+  # Then for mc 1, the loop compares the four last columns of len_key to the four
+  # first columns in the M matrix
+  # When mc is 4, the loop compares the last entry in key to the fourth column of M
+  for (mc in 1:mlag){
+    # look at the last mc in the key
+    sub_key <- key[(len_key-mc+1):len_key]
+    
+    # see what rows of M match the key
+    matching_rows <- colSums(!(t(M[,(mlag-mc+1):mlag,drop=FALSE])==sub_key))
+    # If matching_rows[j] is 0 and is finite, then  row j contains a match
+    matching_rows = which(matching_rows == 0 & is.finite(matching_rows))
+    
+    #now that we know where the key appeared in the text, use the following words as predictions
+    predictions <- append(predictions, M[matching_rows, mlag+1])
+    
+    
+    #all the next words of a specific sequence length are given equal probability
+    #higher/lower weight for longer/shorter sequence lengths can be specified 
+    #through w
+    predictions_weights <- append(predictions_weights,
+                                  rep(w[mc]/length(matching_rows),length(matching_rows))
+    )
   }
-  # key now (at least) one word shorter than M
   
-  # Initialize a predicted word vector
-  predicted_tokens <- c()
-  
-  # Compare rows of M to key to find predictions
-  compare_key <- colSums(!(t(M[,1:length(key),drop=FALSE])==key))
-  # If compare_key[i] is 0 and is finite, then  contains a match
-  matched_key = which(compare_key ==0 & is.finite(compare_key))
-  # Add the predictions (rows of M found above) to predicted_tokens
-  predicted_tokens <- M[matched_key, length(key)+1]
-  # This results in a vector containing the predictions of the next word in the phrase
-  
-  # If there are NO predictions, sample randomly from M1
-  if ( is.null(predicted_tokens) == TRUE ){
-    predicted_tokens <- append(predicted_tokens, sample(M1, 1))
-  }
-  
-  # Associate a probability with each predicted token
-  associated_probability <- rep(w[length(key)]/length(predicted_tokens), length(predicted_tokens))
-  
-  # Sampling a token from the observed tokens and weighted frequencies (NAOISE)
+  # Sampling a token from the observed tokens and weighted frequencies
   # Taking resample function from ?sample
   resample <- function(x, ...) x[sample.int(length(x), ...)]
-  next_token <- resample(x = predicted_tokens, 1, prob = associated_probability)
-  # Check whether the next_token is NA (REMEMBER TO exclude punctuation!!!!!!!!!!!!!!!!!)
-  if ( is.na(next_token) == TRUE ){
-    next_word <- sample(M1, 1)
-    return(print(paste("This is the next word:", next_word)))
+  
+  if ( length(predictions) > 0 ){
+    next_token <- resample(x=predictions, 1, prob=predictions_weights)
+    # There are no predictions, so sample next_token randomly from M1
+  } else {
+    next_token <- resample(x=M1, 1)
   }
   
-  # Return the next word in the word phrase
-  ### ASK IN TUTORIAL WHETHER WE CAN INCLUDE B WITHOUT ADDING INTO FUNCTION??? ###
-  next_word <- b[next_token]
+  # Create a modified M1 vector excluding punctuation tokens for sampling
+  # find the tokens for the punctuation vectors
+  punctuation_tokens <- which(!is.na(match(b, punctuation.vec)))
+  M1_no_punctuation <- M1[! M1 %in% punctuation_tokens]
   
-  return(print(paste("This is the next word:", next_word)))
+  #if we randomly sampled something not in the vocab we'll just pick randomly from M1
+  next_token <- if ( is.na(next_token)) sample(M1_no_punctuation, 1) else next_token
+  
+  #we dont want two punctuations following each other
+  if ( key[length(key)] %in% punctuation_tokens && next_token %in% punctuation_tokens ){
+    next_token <- sample(M1_no_punctuation, 1) 
+  }
+  
+  return(next_token)
 }
 
-# Start with your initial key
-key <- c(85)   # or whatever starting token(s) you want
-
-# Generate the next word
-key <- next.word(key, M, M1)
-key <- next.word(key, M, M1)
-key <- next.word(key, M, M1)
-key <- next.word(key, M, M1)
-
-# Should BREAK here --> this is where it gets bigger than mlag+1 and causes issues, not super sure why
-key <- next.word(key, M, M1)
-
-" So what I have figured out with debugging is that my function will only
-generate tokens up to mlag+1. Additionally, the code includes NAs as words"
-
-"
-Question 8
-"
-
-# THIS ONE WILL RANDOM GENERATE NAs
-
-random_word_retrieval <- function(token_vector=M1, token_compare=b){
+#we need a word token to start off the key sequence so we can pick one randomly
+#or the user can pick a starter word
+create_starter_token <- function(starter_word = NULL, vocab = b){
   "
-  This function initializes the key vector with a random word token.
+  This function gives back the token for the word supplied, if it's in the
+  vocab. Otherwise, it chooses a token randomly.
+  
   Description of Parameters:
-  1. M1 is the vector of word tokens for the whole text
-  2. token_compare is the vector matching word tokens to words
+  1. If USED, starter_word is the word being looked up
+  2. vocab is the vector matching word tokens to words
   "
   
-  # Initialise key vector
-  key <- c()
-  # Create word-token dataframe
-  token_compare_df <- data.frame(
-    word_token = seq_along(token_compare),  # gives 1,2,3,... length(v)
-    given_word = token_compare
-  )
+  if (!is.null(starter_word)){ 
+    #find the location of the word in the vocab, that will be the token
+    token <- which(vocab == starter_word)
+    #check that the word was actually in the vocab
+    if (length(token) > 0) return(token)
+  }
   
-  # Select a single word token (but not punctuation) at random from the text
-  ### Not entirely sure how to omit punctuation given I don't know layout of actual stuff ###
-  ### This one is pulling from NAs, too! ###
-  random_token <- sample(M1, 1, replace=TRUE)
-  
-  # Look up the corresponding "seed" word by using which function (gives row number)
-  random_word <- token_compare_df[(which(token_compare_df$word_token == random_token)),2]
-  
-  return(print(paste("This is the initialised key vector:", random_token,
-                     "And the corresponding word:", random_word)))
+  #either no starter word was given or it was not in the vocab
+  #so randomly sample one from the vocab except punctuations
+  valid_locs <- which( !(vocab %in% punctuation.vec) )
+  # Taking resample function from ?sample
+  resample <- function(x, ...) x[sample.int(length(x), ...)]
+  return( resample(valid_locs, 1) )
 }
 
-
-
-### THIS ONE WORKS PROPERLY ###
-
-specific_word_retrieval <- function(given_word, token_compare=b, token_vector=M1) {
+#when the model has predicted text we want to turn it into a readable sentence
+print_sentence <- function(key, vocab=b){
   "
-  This function retrieves the token for a specific word from the text.
-  
-  Description of parameters:
-  1. given_word (a string) is the given word
-  2. token_compare is the vector matching word tokens to words
-  3. M1 is the vector of word tokens for the whole text
-  
-  "
-  # Initialise key vector
-  key <- c()
-  # Create word-token dataframe
-  token_compare_df <- data.frame(
-    word_token = seq_along(token_compare),  # gives 1,2,3,... length(v)
-    given_word = token_compare
-  )
-  
-  # Look up the corresponding token by using which function (gives row number)
-  corresponding_token <- token_compare_df[(which(token_compare_df$given_word == given_word)),1]
-  
-  # Insert the random token into key vector
-  key <- c(corresponding_token)
-  
-  return(print(paste("This is the initialised key vector:", corresponding_token,
-                     "And the corresponding word:", given_word)))
-}
-
-
-
-"
-Question 9
-"
-
-# Write code to simulate from model until full stop is reached
-
-" Choose either random_word_retrieval OR token_word_retrieval to initialize
-the key vector. This code chooses random_word_retrieval to start."
-#locations for , is 1, . is 2, ; is 11, ? is 14, ! is 23, : is 46.
-random_word_retrieval()
-# specific_word_retrieval('wherefore')
-
-# Enter a repeat loop of the next.word function until a full stop is reached
-repeat{
-  # Use the next.word function from Question 7 to predict the next word
-  next.word(key,M,M1,w=rep(1,ncol(M)-1))
-  # Identify final value in the vector
-  final_token_key <- key[length(key)]
-  
-  # Break function if final token in key corresponds with full-stop token
-  if (token_compare[(which(token_compare$given_word == ".")),1] == final_token_key)
-    break
-}
-
-### THIS ONE WORKS, BUT DO WE NEED TO CAPITALIZE THE FIRST LETTER OF THE SENTENCE??? ###
-
-print.shakespeare <- function(key, token_compare=b){
-  "
-  This function converts the final key (vector of tokens) into written text.
+  This function converts the final key (vector of tokens) into capitalise written text.
+  There are no spaces between words and associated punctuation.
   
   Description of Parameters:
   1. key is the vector of generated word-tokens
-  2. token_compare is the dataframe matching word tokens to words
+  2. vocab is the vector matching word tokens to words
   "
+  sentence <- vocab[key]
   
-  # Initialize sentence vector (to correspond with key)
-  final_sentence <- c()
-  # Create word-token dataframe
-  token_compare_df <- data.frame(
-    word_token = seq_along(token_compare),  # gives 1,2,3,... length(v)
-    given_word = token_compare
-  )
-  
-  # Loop through each word in the key vector
-  for (i in 1:(length(key))){
-    # Append the word that corresponds with each token to end of sentence
-    final_sentence <- append(final_sentence, token_compare_df[(which(token_compare_df$word_token == key[i])),2])
+  #this ensures there isn't punctuation surround by spaces
+  #e.g. "the cat , whose..."
+  #find where the punctuation marks are
+  punct_locs <- which(sentence %in% punctuation.vec)
+  if(length(punct_locs) >0){
+    #join the punctuation marks onto the words proceeding them
+    #this will paste the vectors element-wise
+    sentence[punct_locs-1] <- paste(
+      sentence[punct_locs-1], sentence[punct_locs], sep = "")
+    #then remove the entries for those marks
+    sentence <- sentence[-punct_locs]
   }
-  # Paste the words back together into one string
-  ### I might have to deal with punctuation specifically for this... wait and see later ###
-  paste(final_sentence, collapse=" ")
+  sentence <- paste(sentence, collapse = " ")
+  # Replace first instance (first letter) with uppercase letter
+  # Extract uppercase letter
+  sentence <- sub(substr(sentence, 1, 1),
+                  toupper(substr(sentence, 1, 1)),
+                  sentence)
+  sentence <- gsub(" i ", " I ", sentence)
+  return(sentence)
 }
 
-print.shakespeare(key)
 
-### DO NOT FORGET THIS FINAL PART (NOT TECHNICALLY PART OF THE QUESTION) ###
+#We are now going to generate words from the model until we hit a ?, ! or .
+# we then pretty print out the generated sentence
 
-" Compare the results to ‘sentences’ obtained by simply drawing common words at
-random from the text until a full stop is drawn."
-
+stop_tokens <- which(!is.na(match(b, unlist(strsplit("!.?", ""))  )))
+# We have chosen to start with the word Romeo
+key <- create_starter_token('romeo', b)
+next_token <- -1
+weights <- (1:mlag)^2
+while (! next_token %in% stop_tokens){
+  next_token <- next.word(key,M,M1, w = weights)
+  key <- append(key, next_token)
+}
+print_sentence(key)
