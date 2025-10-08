@@ -38,7 +38,7 @@ get_net <- function(beta, nc=15){
   # chance of a contact
   
   n <- length(beta) #size of the population
-  network <- list();network[1:n] = NA #we will remove the NA at the end
+  network <- list();network[1:n] = c(NA) #we will remove the NA at the end
   
   #i only considers the indices greater than i
   #this avoids both i and j considering i<->j 
@@ -58,17 +58,21 @@ get_net <- function(beta, nc=15){
     network[[i]] <- c( network[[i]], contacts  )
     # add person i into all of its contacts' contacts
     network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
+    cat(network[[i]], "\n")
   }
   #take out the placeholder NA, without leaving attributes from na.omit
-  lapply(network, function(x) as.numeric(na.omit(x)) )
+  network <- lapply(network, function(x) na.omit(x) )
+  lapply(network, function(x){attr(x, c("na.action","class")) <- NULL ;x} )
+  
 }
 
 set.seed(2025)
-n =10000; h_max = 5;beta <- runif(n)
+n =10; h_max = 5;beta <- runif(n)
 
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 
 system.time( network <- get_net(beta)  )
 length(network)
+network[1:2]
 
 
