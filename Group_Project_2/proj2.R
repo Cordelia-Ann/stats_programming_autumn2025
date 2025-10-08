@@ -1,12 +1,3 @@
-### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
-
-# Todd 
-# Naoise 
-# Cordelia 
-# We all collectively debugged and reviewed each others sections 
-
-
-
 rm(list=ls())
 prob_of_link <- function(i, j, b, n_c ){
   ## the probability of person i and person j being regular contacts
@@ -17,9 +8,9 @@ prob_of_link <- function(i, j, b, n_c ){
   # it is assumed that i, j are not in the same household
   # this code assumes i holds a single value, whereas j can be of arbitrary
   # length
-  n = length(beta)#size of the population
+  n = length(b)#size of the population
   top = n_c*b[i]*b[j]
-  bottom =  (n-1)*(mean(beta)^2)
+  bottom =  (n-1)*(mean(b)^2)
   top/bottom
 }
 
@@ -38,7 +29,7 @@ get_net <- function(beta, nc=15){
   # chance of a contact
   
   n <- length(beta) #size of the population
-  network <- list();network[1:n] = c(NA) #we will remove the NA at the end
+  network <- list();network[1:n] = NA #we will remove the NA at the end
   
   #i only considers the indices greater than i
   #this avoids both i and j considering i<->j 
@@ -46,7 +37,7 @@ get_net <- function(beta, nc=15){
   for (i in 1:(n-1)){
     #omit people that already considered creating a link with i
     potential_contacts = (i+1):n
-    #omit members of the same household, taking h from outside enviornment
+    #omit members of the same household, taking h from outside environment
     same_household = which(h == h[i])
     potential_contacts = potential_contacts[
       !(potential_contacts %in% same_household) ]
@@ -60,18 +51,44 @@ get_net <- function(beta, nc=15){
     network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
   }
   #take out the placeholder NA, without leaving attributes from na.omit
-  network <- lapply(network, function(x) na.omit(x) )
-  lapply(network, function(x){attr(x, c("na.action","class")) <- NULL ;x} )
-  
+  lapply(network, function(x) as.numeric(na.omit(x)) )
 }
 
+# set.seed(2025)
+# this shows that the average contacts will on average be nc
+#it takes about a minute to run
+num_reps <- 1000
+sampled_avg_contacts = numeric(num_reps)
+for (i in 1:num_reps){
+  n =100; h_max = 5;beta <- runif(n)
+  
+  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+  
+  system.time( network <- get_net(beta)  )
+  length(network)
+  counts <- sapply(network, function(x) length(x) )
+  sampled_avg_contacts[i] <- mean(counts)
+}
+hist(sampled_avg_contacts);mean(sampled_avg_contacts)
+
 set.seed(2025)
-n =1000; h_max = 5;beta <- runif(n)
+n =100; h_max = 5;beta <- runif(n)
 
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 
-system.time( network <- get_net(beta)  )
+# system.time( network <- get_net(beta)  )
+library("debug")
+mtrace(get_net)
+network <- get_net(beta)
+mtrace.off()
 length(network)
-network[1:2]
+counts <- sapply(network, function(x) length(x) )
+counts
+mean(counts)
+hist(counts)
 
-
+#checking if prob_of_link is right
+bb <- c(.1,.2, .3,.4);n_c <-2
+mean(bb)
+(n_c*0.1*.2)/((1/16)*3)
+prob_of_link(1,2,bb,n_c)
