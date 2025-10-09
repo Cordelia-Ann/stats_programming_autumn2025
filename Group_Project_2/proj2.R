@@ -33,7 +33,6 @@ get_net <- function(beta, nc=15){
   
   #i only considers the indices greater than i
   #this avoids both i and j considering i<->j 
-  u_vec <- runif((n-1)^2) #precompute some coin flips
   for (i in 1:(n-1)){
     #omit people that already considered creating a link with i
     potential_contacts = (i+1):n
