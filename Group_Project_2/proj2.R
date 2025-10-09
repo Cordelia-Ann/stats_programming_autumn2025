@@ -43,22 +43,22 @@ get_net <- function(beta, nc=15){
   for (i in 1:(n-1)){
     #omit people that already considered creating a link with i
     potential_contacts = (i+1):n
-    #omit members of the same household, taking h from outside enviornment
+    #omit members of the same household, taking h from outside environment
     same_household = which(h == h[i])
     potential_contacts = potential_contacts[
       !(potential_contacts %in% same_household) ]
     #get the chance of contact between i and the potentials
     # using their sociabilities
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
-    u_vec <- runif(length(potential_contacts))
     #then flip a coin with that probability to decide a contact
-    contacts = potential_contacts[u_vec< chance_of_contact ]
+    u <- runif(length(potential_contacts))
+    contacts = potential_contacts[ u < chance_of_contact ]
     network[[i]] <- c( network[[i]], contacts  )
     # add person i into all of its contacts' contacts
     network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
-    cat(network[[i]], "\n")
   }
-  return(network)
+  #take out the placeholder NA, without leaving attributes from na.omit
+  lapply(network, function(x) as.numeric(na.omit(x)) )
 }
 
 set.seed(2025)
@@ -67,9 +67,6 @@ n =1000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 
 system.time( network <- get_net(beta)  )
-length(network)
-network[1:2]
-reg_contact <- get.net(social_score, h)
 
 nseir <- function(beta, h, alink, alpha = c(.1, .01, .01), 
                   delta = .2, gamma = .4, nc = 15, nt = 100, pinf = .005) {
@@ -85,7 +82,19 @@ nseir <- function(beta, h, alink, alpha = c(.1, .01, .01),
       u <- runif(n) ## uniform random deviates
       x[x==2&u<delta] <- 3 ## I -> R with prob delta
       x[x==1&u<gamma] <- 2 ## E -> I with prob gamma
-      x[x==0&u<beta*I[i-1]] <- 1 ## S -> E with prob beta*I[i-1]
+      
+      if household member infected
+      x[x==0&u<alpha[1]] <- 1 ## S -> E with probabilities dependent on
+      else
+      if contact network infected
+      x[x==0&u<alpha[2]] <- 1 ## S -> E with probabilities dependent on
+      else random interaction
+      x[x==0&u<((alpha[3]*nc*beta[i]*beta[j])/(mean(beta)*(n-1))] <- 1 ## S -> E with probabilities dependent on
+      
+      
+      x[x==0&u<beta*I[i-1]] <- 1 ## S -> E with probabilities dependent on
+      #their relationship to the other people. so need to determine if they are
+      #in the household of the compared person, or in network, or random contact.
       S[i] <- sum(x==0); E[i] <- sum(x==1)
       I[i] <- sum(x==2); R[i] <- sum(x==3)
     }
