@@ -33,7 +33,7 @@ get_net <- function(beta, nc=15){
   
   #i only considers the indices greater than i
   #this avoids both i and j considering i<->j 
-  u_vec <- runif(n-1) #precompute some coin flips
+  u_vec <- runif((n-1)^2) #precompute some coin flips
   for (i in 1:(n-1)){
     #omit people that already considered creating a link with i
     potential_contacts = (i+1):n
@@ -45,7 +45,8 @@ get_net <- function(beta, nc=15){
     # using their sociabilities
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
     #then flip a coin with that probability to decide a contact
-    contacts = potential_contacts[u_vec[i] < chance_of_contact ]
+    u <- runif(length(potential_contacts))
+    contacts = potential_contacts[ u < chance_of_contact ]
     network[[i]] <- c( network[[i]], contacts  )
     # add person i into all of its contacts' contacts
     network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
@@ -54,41 +55,37 @@ get_net <- function(beta, nc=15){
   lapply(network, function(x) as.numeric(na.omit(x)) )
 }
 
-# set.seed(2025)
 # this shows that the average contacts will on average be nc
-#it takes about a minute to run
-num_reps <- 1000
-sampled_avg_contacts = numeric(num_reps)
+# it takes about a minute to run
+set.seed(2025); num_reps <- 1000
+sampled_avg_contacts <- sampled_sd_contacts <- numeric(num_reps)
+times <- numeric(num_reps)
 for (i in 1:num_reps){
   n =100; h_max = 5;beta <- runif(n)
-  
   h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-  
-  system.time( network <- get_net(beta)  )
-  length(network)
+  t <- system.time(network <- get_net(beta))
+  times[i] <- t[3] #elapsed times
   counts <- sapply(network, function(x) length(x) )
   sampled_avg_contacts[i] <- mean(counts)
+  sampled_sd_contacts[i] <- sd(counts)
 }
-hist(sampled_avg_contacts);mean(sampled_avg_contacts)
+hist(sampled_avg_contacts);mean(sampled_avg_contacts);mean(sampled_sd_contacts)
+hist(times)
+
 
 set.seed(2025)
-n =100; h_max = 5;beta <- runif(n)
-
+n =10000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+x = system.time( network <- get_net(beta)  )
+x[3]
 
-# system.time( network <- get_net(beta)  )
-library("debug")
-mtrace(get_net)
+
+# library("debug")
+# mtrace(get_net)
 network <- get_net(beta)
-mtrace.off()
+# mtrace.off()
 length(network)
 counts <- sapply(network, function(x) length(x) )
-counts
-mean(counts)
+mean(counts);sd(counts)
 hist(counts)
 
-#checking if prob_of_link is right
-bb <- c(.1,.2, .3,.4);n_c <-2
-mean(bb)
-(n_c*0.1*.2)/((1/16)*3)
-prob_of_link(1,2,bb,n_c)
