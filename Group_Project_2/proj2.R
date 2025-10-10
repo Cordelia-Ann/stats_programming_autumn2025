@@ -65,29 +65,30 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   # if no-one starts out infected, this is a worthless simulation
   while (length(initial_I) == 0 ){ initial_I <- which(runif(n) < pinf) }
   #record the initial day
-  pop <- rep(0,n); pop[initial_I] <- 3
-  S[1] <- n-length(inital_I); I[1] <- length(inital_I)
-  # the chna
+  pop <- rep(0,n); pop[initial_I] <- 2
+  S[1] <- n-length(initial_I); I[1] <- length(initial_I)
+  # 
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
-  
+  cat(table(pop), "\n")
   for (day in 2:nt){
     u <- runif(n)
-    pop[ pop==3&u<delta ] <- 3 # I -> R
+    pop[ pop==2&u<delta ] <- 3 # I -> R
     pop[ pop==1&u<gamma ] <- 2 # E -> I
-    currently_S <- which(pop==0); n_S = lenght(currently_S)
     for (infected in which(pop == 2)){
       #infects a susceptible member of their household
-      pop[ pop==0&h[pop]==h[infected] ][runif(n) <a_h] <- 1
+      pop[ pop==0&h[pop]==h[infected]&runif(n) <a_h] <- 1
       #infects a susceptible person through random mixing
-      pop[pop==0][ runif(n) < a_r*prob_of_link(infected, pop, beta, n_c) ] <- 1
+      v <-  a_r*prob_of_link(infected, pop, beta, nc)
+      cat(length(v), "\n")
+      pop[pop==0 & runif(n) < a_r*prob_of_link(infected, pop, beta, nc) ] <- 1
       #infects a susceptible regular contact
-      pop[ network[[i]] ][ pop[network[[i]]]==0 ][runif(n) <a_r]
+      pop[ alink[[infected]] ][ pop[alink[[infected]]]==0 & runif(length(alink[[infected]])) < a_c ] <- 1
     }
     #record today's counts
     S[day] <- sum(pop==0); E[day] <- sum(pop==1)
     I[day] <- sum(pop==2); R[day] <- sum(pop==3)
   }
-  return(list(S,E,I,R, t=1:nt))
+  return(list(S=S,E=E,I=I,R=R, t=1:nt))
 }
 
 
@@ -95,28 +96,33 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 
 # this shows that the average contacts will on average be nc
 # it takes about a minute to run
-set.seed(2025); num_reps <- 1000
-sampled_avg_contacts <- sampled_sd_contacts <- numeric(num_reps)
-times <- numeric(num_reps)
-for (i in 1:num_reps){
-  n =100; h_max = 5;beta <- runif(n)
-  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-  t <- system.time(network <- get_net(beta))
-  times[i] <- t[3] #elapsed times
-  counts <- sapply(network, function(x) length(x) )
-  sampled_avg_contacts[i] <- mean(counts)
-  sampled_sd_contacts[i] <- sd(counts)
-}
-hist(sampled_avg_contacts);mean(sampled_avg_contacts);mean(sampled_sd_contacts)
-hist(times);mean(times)
+# set.seed(2025); num_reps <- 1000
+# sampled_avg_contacts <- sampled_sd_contacts <- numeric(num_reps)
+# times <- numeric(num_reps)
+# for (i in 1:num_reps){
+#   n =100; h_max = 5;beta <- runif(n)
+#   h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+#   t <- system.time(network <- get_net(beta))
+#   times[i] <- t[3] #elapsed times
+#   counts <- sapply(network, function(x) length(x) )
+#   sampled_avg_contacts[i] <- mean(counts)
+#   sampled_sd_contacts[i] <- sd(counts)
+# }
+# hist(sampled_avg_contacts);mean(sampled_avg_contacts);mean(sampled_sd_contacts)
+# hist(times);mean(times)
 
 
 set.seed(2025)
-n =10000; h_max = 5;beta <- runif(n)
+n =1000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 x = system.time( network <- get_net(beta)  );x
 # length(network)
 # counts <- sapply(network, function(x) length(x) )
 # mean(counts);sd(counts)
 # hist(counts)
+simu <- nseir(beta, h, network)
 
+# table(simu)
+# sapply(simu, function(x){plot(1:length(x),x)})
+simu$I
+plot(1:length(simu$I), simu$I)
