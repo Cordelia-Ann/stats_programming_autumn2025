@@ -69,20 +69,17 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   S[1] <- n-length(initial_I); I[1] <- length(initial_I)
   # 
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
-  cat(table(pop), "\n")
   for (day in 2:nt){
-    u <- runif(n)
-    pop[ pop==2&u<delta ] <- 3 # I -> R
-    pop[ pop==1&u<gamma ] <- 2 # E -> I
+    pop[ pop==2&runif(n)<delta ] <- 3 # I -> R
+    pop[ pop==1&runif(n)<gamma ] <- 2 # E -> I
+    currently_S <- which(pop==0); n_S <- length(currently_S)
     for (infected in which(pop == 2)){
-      #infects a susceptible member of their household
-      pop[ pop==0&h[pop]==h[infected]&runif(n) <a_h] <- 1
       #infects a susceptible person through random mixing
-      v <-  a_r*prob_of_link(infected, pop, beta, nc)
-      cat(length(v), "\n")
-      pop[pop==0 & runif(n) < a_r*prob_of_link(infected, pop, beta, nc) ] <- 1
+      pop[currently_S][ runif(n_S)<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
+      #infects a susceptible member of their household
+      pop[currently_S][ h[currently_S]==h[infected] & runif(n_S)<a_h ] <- 1
       #infects a susceptible regular contact
-      pop[ alink[[infected]] ][ pop[alink[[infected]]]==0 & runif(length(alink[[infected]])) < a_c ] <- 1
+      pop[currently_S][ currently_S %in% alink[[infected]] & runif(n_S)<a_c ] <- 1
     }
     #record today's counts
     S[day] <- sum(pop==0); E[day] <- sum(pop==1)
@@ -113,16 +110,17 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 
 
 set.seed(2025)
-n =1000; h_max = 5;beta <- runif(n)
+n =10000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-x = system.time( network <- get_net(beta)  );x
-# length(network)
-# counts <- sapply(network, function(x) length(x) )
-# mean(counts);sd(counts)
-# hist(counts)
-simu <- nseir(beta, h, network)
+system.time( network <- get_net(beta)  )
 
-# table(simu)
-# sapply(simu, function(x){plot(1:length(x),x)})
-simu$I
-plot(1:length(simu$I), simu$I)
+library("debug")
+# mtrace(nseir)
+system.time(simu <- nseir(beta, h, network ) ) 
+# mtrace.off()
+length(simu)
+# plot(simu$t, simu$I, type="l")
+simu
+
+
+
