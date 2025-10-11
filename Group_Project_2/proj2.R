@@ -53,33 +53,35 @@ get_net <- function(beta, nc=15){
   return( network )
 }
 
-
 nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
                   ,gamma=.4,nc=15, nt = 100,pinf = .005){
   n = length(beta) #size of population
   #record the number of people in each state each day
   S <- E <- I <- R <- rep(0, nt)
-  # a pinf proportion of the population start as infected,
+  pop <- rep(0,n)
+  # a random pinf proportion of the population start as infected,
   # the remainder are susceptible
-  initial_I <- NULL
   # if no-one starts out infected, this is a worthless simulation
-  while (length(initial_I) == 0 ){ initial_I <- which(runif(n) < pinf) }
-  #record the initial day
-  pop <- rep(0,n); pop[initial_I] <- 2
-  S[1] <- n-length(initial_I); I[1] <- length(initial_I)
+  #so we hardcode at least one infection
+  pop[sample(n, size = max(1, floor(n*pinf))) ] <- 2
+  #record the first day
+  S[1] <- sum(pop==0); I[1] <- sum(pop==2)
   # 
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
   for (day in 2:nt){
-    pop[ pop==2&runif(n)<delta ] <- 3 # I -> R
-    pop[ pop==1&runif(n)<gamma ] <- 2 # E -> I
+    u <- runif(n)
+    
+    pop[ pop==2&u<delta ] <- 3 # I -> R
+    pop[ pop==1&u<gamma ] <- 2 # E -> I
     currently_S <- which(pop==0); n_S <- length(currently_S)
     for (infected in which(pop == 2)){
+      u<- runif(n_S)
       #infects a susceptible person through random mixing
-      pop[currently_S][ runif(n_S)<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
+      pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
       #infects a susceptible member of their household
-      pop[currently_S][ h[currently_S]==h[infected] & runif(n_S)<a_h ] <- 1
+      pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
       #infects a susceptible regular contact
-      pop[currently_S][ currently_S %in% alink[[infected]] & runif(n_S)<a_c ] <- 1
+      pop[currently_S][ currently_S %in% alink[[infected]] & u<a_c ] <- 1
     }
     #record today's counts
     S[day] <- sum(pop==0); E[day] <- sum(pop==1)
@@ -110,7 +112,7 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 
 
 set.seed(2025)
-n =10000; h_max = 5;beta <- runif(n)
+n =1000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 system.time( network <- get_net(beta)  )
 
@@ -118,9 +120,53 @@ library("debug")
 # mtrace(nseir)
 system.time(simu <- nseir(beta, h, network ) ) 
 # mtrace.off()
-length(simu)
-# plot(simu$t, simu$I, type="l")
-simu
+
+
+# plot(NA,NA,
+#      xlim=range(simu$t), ylim = c(0,n), 
+#      type = "n", xlab = "Day", ylab = "N"
+# )
+# lines(simu$t, simu$S)
+# simu$S
+# attributes(simu)
+colours <- c("black", "red", "blue", "purple")
+for (i in 1:4 ){
+  lines(simu$t, simu[[i]], col = colours[i], lwd = 2)
+}
+legend(x=100, y = n/2,
+       legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+       xjust = 1, yjust = .5,
+       fill = colours
+)
+
+
+#just want to point out something here
+#we NEED to somehow account for the variablility in the output when 
+#we are doing the later steps
+
+set.seed(2025)
+n =1000; h_max = 5;beta <- runif(n)
+h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+network <- get_net(beta)
+#now having the same population and beta 
+# look at how our simulation varies just by random variability
+plot(NA,NA,
+     xlim=range(simu$t), ylim = c(0,n),
+     type = "n", xlab = "Day", ylab = "N"
+)
+colours <- c("black", "red", "blue", "purple")
+
+for( some_index in 1:50){
+  simu <- nseir(beta, h, network ) 
+  lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
+  lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
+  lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
+  lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
+}
+
+#I suggest running each of the 4 situations ~100 times, maybe less depending on 
+# runtimes and taking 90% CIs of the each of the states/day
+
 
 
 
