@@ -122,22 +122,22 @@ system.time(simu <- nseir(beta, h, network ) )
 # mtrace.off()
 
 
-plot(NA,NA,
-     xlim=range(simu$t), ylim = c(0,n),
-     type = "n", xlab = "Day", ylab = "N"
-)
+# plot(NA,NA,
+#      xlim=range(simu$t), ylim = c(0,n),
+#      type = "n", xlab = "Day", ylab = "N"
+# )
 # lines(simu$t, simu$S)
 # simu$S
 # attributes(simu)
-colours <- c("black", "red", "blue", "purple")
-for (i in 1:4 ){
-  lines(simu$t, simu[[i]], col = colours[i], lwd = 2)
-}
-legend(x=100, y = n/2,
-       legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
-       xjust = 1, yjust = .5,
-       fill = colours
-)
+# colours <- c("black", "red", "blue", "purple")
+# for (i in 1:4 ){
+#   lines(simu$t, simu[[i]], col = colours[i], lwd = 2)
+# }
+# legend(x=100, y = n/2,
+#        legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+#        xjust = 1, yjust = .5,
+#        fill = colours
+# )
 
 
 #just want to point out something here
@@ -172,21 +172,25 @@ legend(x=100, y = n/2,
 # Since we are now looking at confidence bands instead of specific
 # instances of a simulation our plots need to change
 # here is what I've done as a starting point
-plot_pop_change <- function(simu_upper, simu_lower){
+plot_pop_change <- function(simu_upper, simu_lower, pop_size){
 
   days = simu_upper$t
-  n = max(simu_upper$S) #population size
   plot(NA,NA,
        xlim=range(days),
-       ylim = c(0,n),
-       type = "n", xlab = "Day", ylab = "N"
+       ylim = c(0,pop_size),
+       type = "n", xlab = "Day", ylab = "N",
+       main = "Typical epidemic development"
+       #must put in a title
   )
   colours <-  c("black", "red", "blue", "purple")
-  for (i in c(4,1,3,2) ){
+  #need to lower intensity/hue/strength of colours to see overlaps
+  states <- c("S", "E", "I", "R")
+  #doing them in different order as i want E and R on top
+  for (state in states[c(4,1,3,2)] ){
     polygon(
       x = c(days, rev(days)),
-      y = c(simu_lower[[i]], rev(simu_upper[[i]]) ),
-      col = colours[i]
+      y = c(simu_lower[[state]], rev(simu_upper[[state]]) ),
+      col = colours[state==states]
     )
   }
   legend(x=max(days), y = n/2,
@@ -195,10 +199,50 @@ plot_pop_change <- function(simu_upper, simu_lower){
          fill = colours,
          bty = "n"
   )
-  #must put in a title
 }
 
 # until we create the confidence bands lets just reuse existing data
-plot_pop_change(simu, lapply(simu, function(x) x - 50))
+plot_pop_change(simu, lapply(simu, function(x) x - 50), n)
+n_days = 100;n_reps=50;set.seed(2025)
+big_l <- list()
+big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+big_l$S <- big_l$E <- big_l$I <- big_l$R
+plot(NA,NA,
+     xlim=range(simu$t), ylim = c(0,n),
+     type = "n", xlab = "Day", ylab = "N"
+)
+colours <- c("black", "red", "blue", "purple")
+
+for( i in 1:n_reps){
+  simu <- nseir(beta,h, network, nt = n_days)
+  big_l$S[i,] <- simu$S
+  big_l$E[i,] <- simu$E
+  big_l$I[i,] <- simu$I
+  big_l$R[i,] <- simu$R
+  lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
+  lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
+  lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
+  lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
+}
 
 
+simu_lower <- lapply(
+  big_l, 
+  function(state) {
+    apply(state, 2,
+          function(day_reps) quantile(day_reps,probs=c(.05))
+    )
+  }
+)
+simu_lower$t <- 1:n_days
+
+simu_upper <- lapply(
+  big_l, 
+  function(state) {
+    apply(state, 2,
+          function(day_reps) quantile(day_reps,probs=c(.95))
+    )
+  }
+)
+simu_upper$t<- 1:n_days
+plot_pop_change(simu_upper, simu_lower,n)
