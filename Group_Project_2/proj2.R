@@ -122,10 +122,10 @@ system.time(simu <- nseir(beta, h, network ) )
 # mtrace.off()
 
 
-# plot(NA,NA,
-#      xlim=range(simu$t), ylim = c(0,n), 
-#      type = "n", xlab = "Day", ylab = "N"
-# )
+plot(NA,NA,
+     xlim=range(simu$t), ylim = c(0,n),
+     type = "n", xlab = "Day", ylab = "N"
+)
 # lines(simu$t, simu$S)
 # simu$S
 # attributes(simu)
@@ -144,29 +144,61 @@ legend(x=100, y = n/2,
 #we NEED to somehow account for the variablility in the output when 
 #we are doing the later steps
 
-set.seed(2025)
-n =1000; h_max = 5;beta <- runif(n)
-h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-network <- get_net(beta)
-#now having the same population and beta 
-# look at how our simulation varies just by random variability
-plot(NA,NA,
-     xlim=range(simu$t), ylim = c(0,n),
-     type = "n", xlab = "Day", ylab = "N"
-)
-colours <- c("black", "red", "blue", "purple")
-
-for( some_index in 1:50){
-  simu <- nseir(beta, h, network ) 
-  lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
-  lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
-  lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
-  lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
-}
+# set.seed(2025)
+# n =1000; h_max = 5;beta <- runif(n)
+# h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+# network <- get_net(beta)
+# #now having the same population and beta 
+# # look at how our simulation varies just by random variability
+# plot(NA,NA,
+#      xlim=range(simu$t), ylim = c(0,n),
+#      type = "n", xlab = "Day", ylab = "N"
+# )
+# colours <- c("black", "red", "blue", "purple")
+# 
+# for( some_index in 1:50){
+#   simu <- nseir(beta, h, network ) 
+#   lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
+#   lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
+#   lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
+#   lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
+# }
 
 #I suggest running each of the 4 situations ~100 times, maybe less depending on 
 # runtimes and taking 90% CIs of the each of the states/day
 
 
+# plotting time
+# Since we are now looking at confidence bands instead of specific
+# instances of a simulation our plots need to change
+# here is what I've done as a starting point
+plot_pop_change <- function(simu_upper, simu_lower){
+
+  days = simu_upper$t
+  n = max(simu_upper$S) #population size
+  plot(NA,NA,
+       xlim=range(days),
+       ylim = c(0,n),
+       type = "n", xlab = "Day", ylab = "N"
+  )
+  colours <-  c("black", "red", "blue", "purple")
+  for (i in c(4,1,3,2) ){
+    polygon(
+      x = c(days, rev(days)),
+      y = c(simu_lower[[i]], rev(simu_upper[[i]]) ),
+      col = colours[i]
+    )
+  }
+  legend(x=max(days), y = n/2,
+         legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+         xjust = 1, yjust = .5,
+         fill = colours,
+         bty = "n"
+  )
+  #must put in a title
+}
+
+# until we create the confidence bands lets just reuse existing data
+plot_pop_change(simu, lapply(simu, function(x) x - 50))
 
 
