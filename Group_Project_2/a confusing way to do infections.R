@@ -180,3 +180,8 @@ legend(
   fill = c( rgb(1,0,1,.4), rgb(1,0,0,.4)),
   bty="n"
 )
+old_par<-par(no.readonly = T)
+par(mfrow=c(1,2))
+plot(hist_a,xlim=range(times))
+plot(hist_b,xlim=range(times))
+par(old_par)
