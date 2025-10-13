@@ -127,7 +127,38 @@ simu <- nseir(beta, h, network)
 simu$I
 plot(1:length(simu$I), simu$I)
 
-
+plot_epidemic1 <- function(Epidemic, Total_Pop, Beta_Vector){
+  "Description of function..."
+  # Define S, E, I, R variables
+  Susceptible <- Epidemic$S; Exposed <- Epidemic$E
+  Infected <- Epidemic$I; Recovered <- Epidemic$R
+  
+  # Set plot window up for histogram
+  par(mfcol=c(1,1),mar = c(5, 4, 4, 1))
+  # Create a histogram of the beta distribution
+  #histogram_beta_values <- hist(Beta_Vector,xlab="Values for Beta",
+  #                              main="Uniform Distribution Hist of Beta",
+  #                              col="skyblue1")
+  # Plot rate of susceptible individuals over time
+  plot(Susceptible,ylim=c(0,max(Total_Pop)),xlab="Day",ylab="Number of People",
+       main="Tracking Epidemic Infections over Time", type = "l", lwd = 3)
+  points(Exposed, col="green", type = "l", lwd = 3) # Add line for Exposed
+  points(Infected, col="red", type = "l", lwd = 3) # Add line for Infected
+  points(Recovered, col="blue", type = "l", lwd = 3) # Add line for Recovered
+  legend("left",
+         c("Susceptible", "Exposed", "Infected", "Recovered"),
+         bty = "n", # Removes the legend box
+         col=c("black", "green", "red", "blue"),
+         lwd=10, xpd = TRUE) # Needed to put the legend outside the plot
+  plot_popvstime = recordPlot() # Save plot
+  
+  # Print plots
+  #histogram_beta_values
+  plot_popvstime
+}                          
+                          
+plot_epidemic1(simu, 1000, beta)
+                          
 plot_epidemic <- function(Epidemic, Total_Pop, Beta_Vector){
   "Description of function..."
   # Define S, E, I, R variables
@@ -162,3 +193,4 @@ plot_epidemic <- function(Epidemic, Total_Pop, Beta_Vector){
                           
 plot_epidemic(simu, 1000, beta)
                           
+
