@@ -53,36 +53,35 @@ get_net <- function(beta, nc=15){
   return( network )
 }
 
-
 nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
                   ,gamma=.4,nc=15, nt = 100,pinf = .005){
   n = length(beta) #size of population
   #record the number of people in each state each day
   S <- E <- I <- R <- rep(0, nt)
-  # a pinf proportion of the population start as infected,
+  pop <- rep(0,n)
+  # a random pinf proportion of the population start as infected,
   # the remainder are susceptible
-  initial_I <- NULL
   # if no-one starts out infected, this is a worthless simulation
-  while (length(initial_I) == 0 ){ initial_I <- which(runif(n) < pinf) }
-  #record the initial day
-  pop <- rep(0,n); pop[initial_I] <- 2
-  S[1] <- n-length(initial_I); I[1] <- length(initial_I)
+  #so we hardcode at least one infection
+  pop[sample(n, size = max(1, floor(n*pinf))) ] <- 2
+  #record the first day
+  S[1] <- sum(pop==0); I[1] <- sum(pop==2)
   # 
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
-  cat(table(pop), "\n")
   for (day in 2:nt){
     u <- runif(n)
+    
     pop[ pop==2&u<delta ] <- 3 # I -> R
     pop[ pop==1&u<gamma ] <- 2 # E -> I
+    currently_S <- which(pop==0); n_S <- length(currently_S)
     for (infected in which(pop == 2)){
-      #infects a susceptible member of their household
-      pop[ pop==0&h[pop]==h[infected]&runif(n) <a_h] <- 1
+      u<- runif(n_S)
       #infects a susceptible person through random mixing
-      v <-  a_r*prob_of_link(infected, pop, beta, nc)
-      cat(length(v), "\n")
-      pop[pop==0 & runif(n) < a_r*prob_of_link(infected, pop, beta, nc) ] <- 1
+      pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
+      #infects a susceptible member of their household
+      pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
       #infects a susceptible regular contact
-      pop[ alink[[infected]] ][ pop[alink[[infected]]]==0 & runif(length(alink[[infected]])) < a_c ] <- 1
+      pop[currently_S][ currently_S %in% alink[[infected]] & u<a_c ] <- 1
     }
     #record today's counts
     S[day] <- sum(pop==0); E[day] <- sum(pop==1)
@@ -115,82 +114,315 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 set.seed(2025)
 n =1000; h_max = 5;beta <- runif(n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-x = system.time( network <- get_net(beta)  );x
-# length(network)
-# counts <- sapply(network, function(x) length(x) )
-# mean(counts);sd(counts)
-# hist(counts)
-simu <- nseir(beta, h, network)
+system.time( network <- get_net(beta)  )
 
-# table(simu)
-# sapply(simu, function(x){plot(1:length(x),x)})
-simu$I
-plot(1:length(simu$I), simu$I)
+library("debug")
+# mtrace(nseir)
+system.time(simu <- nseir(beta, h, network ) ) 
+# mtrace.off()
 
-plot_epidemic1 <- function(Epidemic, Total_Pop, Beta_Vector){
-  "Description of function..."
-  # Define S, E, I, R variables
-  Susceptible <- Epidemic$S; Exposed <- Epidemic$E
-  Infected <- Epidemic$I; Recovered <- Epidemic$R
+
+# plot(NA,NA,
+#      xlim=range(simu$t), ylim = c(0,n),
+#      type = "n", xlab = "Day", ylab = "N"
+# )
+# lines(simu$t, simu$S)
+# simu$S
+# attributes(simu)
+# colours <- c("black", "red", "blue", "purple")
+# for (i in 1:4 ){
+#   lines(simu$t, simu[[i]], col = colours[i], lwd = 2)
+# }
+# legend(x=100, y = n/2,
+#        legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+#        xjust = 1, yjust = .5,
+#        fill = colours
+# )
+
+
+#just want to point out something here
+#we NEED to somehow account for the variablility in the output when 
+#we are doing the later steps
+
+# set.seed(2025)
+# n =1000; h_max = 5;beta <- runif(n)
+# h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+# network <- get_net(beta)
+# #now having the same population and beta 
+# # look at how our simulation varies just by random variability
+# plot(NA,NA,
+#      xlim=range(simu$t), ylim = c(0,n),
+#      type = "n", xlab = "Day", ylab = "N"
+# )
+# colours <- c("black", "red", "blue", "purple")
+# 
+# for( some_index in 1:50){
+#   simu <- nseir(beta, h, network ) 
+#   lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
+#   lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
+#   lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
+#   lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
+# }
+
+#I suggest running each of the 4 situations ~100 times, maybe less depending on 
+# runtimes and taking 90% CIs of the each of the states/day
+
+
+# plotting time
+# Since we are now looking at confidence bands instead of specific
+# instances of a simulation our plots need to change
+# here is what I've done as a starting point
+plot_pop_change <- function(simu_upper, simu_lower, pop_size){
   
-  # Set plot window up for histogram
-  par(mfcol=c(1,1),mar = c(5, 4, 4, 1))
-  # Create a histogram of the beta distribution
-  #histogram_beta_values <- hist(Beta_Vector,xlab="Values for Beta",
-  #                              main="Uniform Distribution Hist of Beta",
-  #                              col="skyblue1")
-  # Plot rate of susceptible individuals over time
-  plot(Susceptible,ylim=c(0,max(Total_Pop)),xlab="Day",ylab="Number of People",
-       main="Tracking Epidemic Infections over Time", type = "l", lwd = 3)
-  points(Exposed, col="green", type = "l", lwd = 3) # Add line for Exposed
-  points(Infected, col="red", type = "l", lwd = 3) # Add line for Infected
-  points(Recovered, col="blue", type = "l", lwd = 3) # Add line for Recovered
-  legend("left",
-         c("Susceptible", "Exposed", "Infected", "Recovered"),
-         bty = "n", # Removes the legend box
-         col=c("black", "green", "red", "blue"),
-         lwd=10, xpd = TRUE) # Needed to put the legend outside the plot
-  plot_popvstime = recordPlot() # Save plot
+  days = simu_upper$t
+  plot(NA,NA,
+       xlim=range(days),
+       ylim = c(0,pop_size),
+       type = "n", xlab = "Day", ylab = "N",
+       main = "Typical epidemic development"
+       #must put in a title
+  )
+  colours <-  c(rgb(0, 0, 0, 0.5), rgb(1, 0, 0, 0.5),
+                rgb(0, 1, 0, 0.5), rgb(0, 0, 1, 0.5))
+  #need to lower intensity/hue/strength of colours to see overlaps
+  states <- c("S", "E", "I", "R")
+  #doing them in different order as i want E and R on top
+  for (state in states[c(4,1,3,2)] ){
+    polygon(
+      x = c(days, rev(days)),
+      y = c(simu_lower[[state]], rev(simu_upper[[state]]) ),
+      col = colours[state==states]
+    )
+  }
+  legend("left", x=max(days), y = n/2,
+         legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+         xjust = 1, yjust = .5,
+         fill = colours,
+         bty = "n"
+  )
+}
+
+# until we create the confidence bands lets just reuse existing data
+plot_pop_change(simu, lapply(simu, function(x) x - 50), n)
+n_days = 100;n_reps=50;set.seed(2025)
+big_l <- list()
+big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+big_l$S <- big_l$E <- big_l$I <- big_l$R
+plot(NA,NA,
+     xlim=range(simu$t), ylim = c(0,n),
+     type = "n", xlab = "Day", ylab = "N"
+)
+colours <- c("black", "red", "blue", "purple")
+
+for( i in 1:n_reps){
+  simu <- nseir(beta,h, network, nt = n_days)
+  big_l$S[i,] <- simu$S
+  big_l$E[i,] <- simu$E
+  big_l$I[i,] <- simu$I
+  big_l$R[i,] <- simu$R
+  #lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
+  #lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
+  #lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
+  #lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
+}
+
+
+simu_lower <- lapply(
+  big_l, 
+  function(state) {
+    apply(state, 2,
+          function(day_reps) quantile(day_reps,probs=c(.05))
+    )
+  }
+)
+simu_lower$t <- 1:n_days
+
+simu_upper <- lapply(
+  big_l, 
+  function(state) {
+    apply(state, 2,
+          function(day_reps) quantile(day_reps,probs=c(.95))
+    )
+  }
+)
+simu_upper$t<- 1:n_days
+plot_pop_change(simu_upper, simu_lower,n)
+
+compare_epidemics <- function(){
   
-  # Print plots
-  #histogram_beta_values
-  plot_popvstime
-}                          
-                          
-plot_epidemic1(simu, 1000, beta)
-                          
-plot_epidemic <- function(Epidemic, Total_Pop, Beta_Vector){
-  "Description of function..."
-  # Define S, E, I, R variables
-  Susceptible <- Epidemic$S; Exposed <- Epidemic$E
-  Infected <- Epidemic$I; Recovered <- Epidemic$R
+  # This is a function that compares four different epidemic types
   
-  # Set plot window up for histogram
-  par(mfcol=c(1,1),mar = c(5, 4, 4, 1))
-  # Create a histogram of the beta distribution
-  histogram_beta_values <- hist(Beta_Vector,xlab="Values for Beta",
-                                main="Uniform Distribution Hist of Beta",
-                                col="skyblue1")
-  # set plot window up for r plot
-  par(mfcol=c(1,1),mar = c(5, 4, 4, 8))
-  # Plot rate of susceptible individuals over time
-  plot(Susceptible,ylim=c(0,max(Total_Pop)),xlab="Day",ylab="Number of People",
-       main="Tracking Epidemic Infections over Time", type = "l", lwd = 3)
-  points(Exposed, col="green", type = "l", lwd = 3) # Add line for Exposed
-  points(Infected, col="red", type = "l", lwd = 3) # Add line for Infected
-  points(Recovered, col="blue", type = "l", lwd = 3) # Add line for Recovered
-  legend("topright", inset = c(-0.325, 0),
-         c("Susceptible", "Exposed", "Infected", "Recovered"),
-         bty = "n", # Removes the legend box
-         col=c("black", "green", "red", "blue"),
-         lwd=10, xpd = TRUE) # Needed to put the legend outside the plot
-  plot_popvstime = recordPlot() # Save plot
+  # Set plot window up to compare 
+  par(mfcol=c(1,1))
   
-  # Print plots
-  histogram_beta_values
-  plot_popvstime
-}                          
+  ### First build the model with default parameters
+  
+  n = 1000; h_max = 5; beta <- runif(n)
+  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+  network_1 <- get_net(beta); epidemic_1 <- nseir(beta, h, network)
+  
+  n_days = 100; n_reps=50; set.seed(2025)
+  big_l <- list()
+  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+  big_l$S <- big_l$E <- big_l$I <- big_l$R
+  for( i in 1:n_reps){
+    simu <- nseir(beta,h, network, nt = n_days)
+    big_l$S[i,] <- simu$S
+    big_l$E[i,] <- simu$E
+    big_l$I[i,] <- simu$I
+    big_l$R[i,] <- simu$R
+  }
+  
+  simu_lower <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.05))
+      )
+    }
+  )
+  simu_lower$t <- 1:n_days
+  
+  simu_upper <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.95))
+      )
+    }
+  )
+  simu_upper$t<- 1:n_days
+  plot_pop_change(simu_upper, simu_lower,n)
+  
+  ### Remove household and regular network structure
+  ### α_h = α_c = 0 and α_r = 0.04
+  
+  # First build the model with default parameters
+  n = 1000; h_max = 5; beta <- runif(n)
+  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+  network_1 <- get_net(beta); epidemic_1 <- nseir(beta, h, network, alpha=c(0,0,0.04))
+  
+  n_days = 100; n_reps=50; set.seed(2025)
+  big_l <- list()
+  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+  big_l$S <- big_l$E <- big_l$I <- big_l$R
+  for( i in 1:n_reps){
+    simu <- nseir(beta,h, network, nt = n_days)
+    big_l$S[i,] <- simu$S
+    big_l$E[i,] <- simu$E
+    big_l$I[i,] <- simu$I
+    big_l$R[i,] <- simu$R
+  }
+  
+  simu_lower <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.05))
+      )
+    }
+  )
+  simu_lower$t <- 1:n_days
+  
+  simu_upper <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.95))
+      )
+    }
+  )
+  simu_upper$t<- 1:n_days
+  plot_pop_change(simu_upper, simu_lower,n)
+  
+  ### Consider full model with the beta vector set to contain average of
+  ### previous beta vector for every element
+  
+  # First build the model with default parameters
+  n = 1000; h_max = 5; beta <- rep(mean(beta), length(beta))
+  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+  network_1 <- get_net(beta); epidemic_1 <- nseir(beta, h, network)
+  
+  n_days = 100; n_reps=50; set.seed(2025)
+  big_l <- list()
+  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+  big_l$S <- big_l$E <- big_l$I <- big_l$R
+  for( i in 1:n_reps){
+    simu <- nseir(beta,h, network, nt = n_days)
+    big_l$S[i,] <- simu$S
+    big_l$E[i,] <- simu$E
+    big_l$I[i,] <- simu$I
+    big_l$R[i,] <- simu$R
+  }
+  
+  simu_lower <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.05))
+      )
+    }
+  )
+  simu_lower$t <- 1:n_days
+  
+  simu_upper <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.95))
+      )
+    }
+  )
+  simu_upper$t<- 1:n_days
+  plot_pop_change(simu_upper, simu_lower,n)
+  
+  ### Combine the previous two scenarios (constant beta, random mixing)
+  
+  # First build the model with default parameters
+  n = 1000; h_max = 5; beta <- rep(mean(beta), length(beta))
+  h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+  network_1 <- get_net(beta); epidemic_1 <- nseir(beta, h, network, alpha=c(0,0,0.04))
+  
+  n_days = 100; n_reps=50; set.seed(2025)
+  big_l <- list()
+  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+  big_l$S <- big_l$E <- big_l$I <- big_l$R
+  for( i in 1:n_reps){
+    simu <- nseir(beta,h, network, nt = n_days)
+    big_l$S[i,] <- simu$S
+    big_l$E[i,] <- simu$E
+    big_l$I[i,] <- simu$I
+    big_l$R[i,] <- simu$R
+  }
+  
+  simu_lower <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.05))
+      )
+    }
+  )
+  simu_lower$t <- 1:n_days
+  
+  simu_upper <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.95))
+      )
+    }
+  )
+  simu_upper$t<- 1:n_days
+  plot_pop_change(simu_upper, simu_lower,n)
+
+  
+}                       
+
+
+compare_epidemics()                       
                           
 plot_epidemic(simu, 1000, beta)
                           
+
 
