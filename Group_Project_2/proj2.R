@@ -1,49 +1,42 @@
 rm(list=ls())
 prob_of_link <- function(i, j, b, n_c ){
-  ## the probability of person i and person j being regular contacts
-  # b is  the vector beta, the sociability parameters for each person in t
-  # the population
-  # i, j is the indices of person i and person j in beta
-  # n_c mean number of contacts per person
-  # it is assumed that i, j are not in the same household
-  # this code assumes i holds a single value, whereas j can be of arbitrary
-  # length
-  n = length(b)#size of the population
+  ## the probability of person i and person j meeting 
+  # b   - the sociability parameters for the whole population
+  # i,j - locations of person i and person j in b
+  #       (j can be a vector of people)
+  # n_c - mean number of contacts per person
+  n = length(b)# population size
   top = n_c*b[i]*b[j]
   bottom =  (n-1)*(mean(b)^2)
   top/bottom
 }
 
 get_net <- function(beta, nc=15){
-  # Randomly create a regular contact network based off of the sociability
-  # of each person,
-  # beta stores the sociability values for each person
-  # nc is the average number of contacts per person
+  # Randomly creates a regular contact network from the sociabilitiy parameters
+  # of the population
+  # beta - sociability values for the whole population
+  # nc   - average number of contacts per person
   #
-  # returns a list, network, where network[i] contains the indices
-  # of the people i is a regular contact with
-  #
-  # go through each person and randomly create contacts with other people
-  # but we do not consider creating a contact between j and i if we already
-  # considered creating a contact between i and j - this would double the 
-  # chance of a contact
+  # returns: a list, network, where network[i] are the regular contacts of person i
   
   n <- length(beta) #size of the population
   network <- vector("list",n)
   
-  #i only considers the indices greater than i
-  #this avoids both i and j considering i<->j 
+  
+  #person i only considers the indices greater than i
+  #this avoids both i and j considering i<->j  which would double the chance of 
+  # a link being created
   for (i in 1:(n-1)){
     #omit people that already considered creating a link with i
     potential_contacts = (i+1):n
-    #omit members of the same household, taking h from outside environment
+    #omit members of the same household, taking h from the outside environment
     same_household = which(h == h[i])
     potential_contacts = potential_contacts[
       !(potential_contacts %in% same_household) ]
-    #get the chance of contact between i and the potentials
+    #get the chance of contact between i and the potential contacts
     # using their sociabilities
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
-    #then flip a coin with that probability to decide a contact
+    # with that probability i and j become regular contacts
     u <- runif(length(potential_contacts))
     contacts = potential_contacts[ u < chance_of_contact ]
     network[[i]] <- c( network[[i]], contacts  )
@@ -55,9 +48,25 @@ get_net <- function(beta, nc=15){
 
 nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
                   ,gamma=.4,nc=15, nt = 100,pinf = .005){
-  n = length(beta) #size of population
-  #record the number of people in each state each day
+  #Simulate the spread of an epidemic in a population under the SEIR model
+  # beta  - sociability parameters for the whole population
+  # h     - maps a person to their household
+  # alink - a list containing the regular contacts for each individual
+  # alpha - the chance of an infectious person infecting a suceptible
+  #       -  household member, regular contact and person they randomly bump into,
+  #          respectively
+  # delta - chance person moves from Infectious to Recovered
+  # gamma - chance person moves from Exposed to Infectious 
+  # nc    - average number of regular contacts per person, used in random mixing
+  # nt    - number of days to run the simulation for
+  # pinf  - the proportion of the population that is Infectious initially
+  #
+  # Returns: a list with vectors S,E,I,R containing the containing the counts
+  #         of people in each state each day, and a vector t storing the days
+  
+  n = length(beta) # population size
   S <- E <- I <- R <- rep(0, nt)
+  # the state of each individual is recorded as 0/1/2/3 encoding S/E/I/R
   pop <- rep(0,n)
   # a random pinf proportion of the population start as infected,
   # the remainder are susceptible
@@ -66,17 +75,19 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   pop[sample(n, size = max(1, floor(n*pinf))) ] <- 2
   #record the first day
   S[1] <- sum(pop==0); I[1] <- sum(pop==2)
-  # 
+  # extract elements of alpha as explained above
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
   for (day in 2:nt){
-    u <- runif(n)
-    
+    u <- runif(n) #coin 
     pop[ pop==2&u<delta ] <- 3 # I -> R
     pop[ pop==1&u<gamma ] <- 2 # E -> I
+    
     currently_S <- which(pop==0); n_S <- length(currently_S)
+    # each infectious person may infect the currently Susceptible
     for (infected in which(pop == 2)){
       u<- runif(n_S)
       #infects a susceptible person through random mixing
+      # chance of infection is chance of meeting randomly times a_r
       pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
       #infects a susceptible member of their household
       pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
@@ -90,39 +101,43 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   return(list(S=S,E=E,I=I,R=R, t=1:nt))
 }
 
-# plot_pop_change <- function(sim, pop_size, title="", ...){
-#   # Plots the number of people in each state (S,E,I,R)
-#   # over the course of the simulation
-#   # sim  - output of nseir. a list with S,E,I,R,t of length nt with the counts 
-#   #        people in that state each day
-#   # pop_size - the total population size
-#   # title - a title for the plot
-#   # ... - all other arguements are passed to plot
-#   
-#   #initialise an empty plot
-#   plot(NA,NA, type = "n", #show nothing yet
-#        xlim = range(sim$t), #days on X axis
-#        ylim = c(0,n), #number of people on the Y axis
-#        main = title,
-#        cex = .8,
-#        xlab = "Days", ylab = "Size", ...
-#   )
-#   # a colour for each state
-#   cols <-  c("black", "red", "blue", "purple")
-#   states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
-#   #draw a line of each state over time
-#   lines(sim$t, sim$S, lwd = 2, col = cols[1])
-#   lines(sim$t, sim$E, lwd = 2, col = cols[2])
-#   lines(sim$t, sim$I, lwd = 2, col = cols[3])
-#   lines(sim$t, sim$R, lwd = 2, col = cols[4])
-# 
-#   legend(
-#     x = max(sim$t), y = n/2, # centre right
-#     xjust = 1, yjust = .5, # legend sits at the edge of the rhs
-#     legend = states, fill = cols,
-#     bty="n" #no box around the legend
-#   )
-# }
+plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
+  # Plots the number of people in each state S,E,I,R
+  # over the course of the simulation
+  # sim         - output of nseir. a list with S,E,I,R,t each of length nt 
+                  # storing the counts of people in each state foreach day in t
+  # pop_size    - the total population size
+  # title       - a title for the plot
+  # show_legend - include a legend or not
+  # ...         - all other arguments are passed to plot
+
+  #initialise an empty plot
+  plot(NA,NA, type = "n", #show nothing yet
+       xlim = range(sim$t), #days on X axis
+       ylim = c(0,n), #number of people on the Y axis
+       main = title,
+       cex.main = .8, #reduce title size to 80%
+       cex.axis = .7, #reduce axis label size to 70%
+       xlab = "Days", ylab = "Size",
+  )
+  # a colour for each state
+  cols <-  c("black", "red", "blue", "purple")
+  states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
+  #draw a line of each state over time
+  lines(sim$t, sim$S, lwd = 2, col = cols[1])
+  lines(sim$t, sim$E, lwd = 2, col = cols[2])
+  lines(sim$t, sim$I, lwd = 2, col = cols[3])
+  lines(sim$t, sim$R, lwd = 2, col = cols[4])
+  #add a legend
+  legend(
+    x = max(sim$t), y = n/2, # centre right
+    xjust = 1, yjust = .5, # legend sits at the edge of the rhs
+    legend = states, fill = cols,
+    bty="n", #no box around the legend
+    plot = show_legend, #plot or not
+    cex = .8 #make the text smaller
+  )
+}
 
 
 set.seed(2025)
@@ -137,89 +152,34 @@ beta_c <- rep(mean(beta), n)
 realistic_mixing_common_beta <- nseir(beta_c, h, network)
 random_mixing_common_beta <- nseir(beta_c, h, network, alpha=c(0,0,.04))
 
-
-# save graphical state to reset it after
+# save graphical state before altering it
 old_par <- par(no.readonly = TRUE) 
-
-
-plot_one_sim<- function(one_sim) {
-  cols <-  c("black", "red", "blue", "purple")
-  states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
-  #draw a line of each state over time
-  lines(one_sim$t, one_sim$S, lwd = 2, col = cols[1])
-  lines(one_sim$t, one_sim$E, lwd = 2, col = cols[2])
-  lines(one_sim$t, one_sim$I, lwd = 2, col = cols[3])
-  lines(one_sim$t, one_sim$R, lwd = 2, col = cols[4])
-} 
-old_par<- par(no.readonly = T)
-par(
-  mfrow=c(2,2),
-  mgp=c(2,1,0)
+par(mfrow=c(2,2),
+  mar=c(3,3,2,2) # decrease the margins
+  ,mgp=c(2,1,0) # bring axis labels closer to axes
 )
-
- days = realistic_mixing_common_beta$t
-#top left so no right or bottom border
-par(mar=c(0,4,4,0))
-plot(NA,NA, type = "n", #show nothing yet
-     xlim = range(days), #days on X axis
-     ylim = c(0,n), #number of people on the Y axis
-     main = "Realistic mixing \n varying sociability",
-     ylab = "Size",
-     xaxt = "n", xlab = "" #nothing on bottom
-)
-plot_one_sim(realistic_mixing_variable_beta)
-#top right so no left or bottom border
-par(mar=c(0,0,4,2))
-plot(NA,NA, type = "n", #show nothing yet
-     xlim = range(days), #days on X axis
-     ylim = c(1,n), #number of people on the Y axis
-     main = "Random mixing \n varying sociability",
-     ylab = "", yaxt = "n",
-     xaxt = "n", xlab = "" #nothing on bottom
-);plot_one_sim(random_mixing_variable_beta)
-#bottom left so no right or top border
-par(mar=c(6,4,0,0))
-plot(NA,NA, type = "n", #show nothing yet
-     xlim = range(days), #days on X axis
-     ylim = c(0,n), #number of people on the Y axis
-     ylab = "Size",
-     xlab = "Days" #nothing on bottom
-);plot_one_sim(realistic_mixing_common_beta)
-title("Realistic mixing \n constant sociability"
-      , line = -11)
-#bottom right so no left or top border
-par(mar=c(6,0,0,2))
-plot(NA,NA, type = "n", #show nothing yet
-     xlim = range(days), #days on X axis
-     ylim = c(0,n), #number of people on the Y axis
-     ylab = "", yaxt = "n",
-     xlab = "Days" #nothing on bottom
-);plot_one_sim(random_mixing_common_beta)
-title("Random mixing \n constant sociability"
-      , line = -11)
-
-
-
-# # a colour for each state
-# cols <-  c("black", "red", "blue", "purple")
-# states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
-# #draw a line of each state over time
-# lines(sim$t, sim$S, lwd = 2, col = cols[1])
-# lines(sim$t, sim$E, lwd = 2, col = cols[2])
-# lines(sim$t, sim$I, lwd = 2, col = cols[3])
-# lines(sim$t, sim$R, lwd = 2, col = cols[4])
-# 
-# legend(
-#   x = max(sim$t), y = n/2, # centre right
-#   xjust = 1, yjust = .5, # legend sits at the edge of the rhs
-#   legend = states, fill = cols,
-#   bty="n" #no box around the legend
-# )
-
-
+plot_pop_change(realistic_mixing_variable_beta, n,
+                "Realistic mixing \n varying sociability")
+plot_pop_change(random_mixing_variable_beta, n, 
+                "Random mixing \n varying sociability", F)
+plot_pop_change(realistic_mixing_common_beta, n, 
+                "Realistic mixing \n constant sociability", F)
+plot_pop_change(random_mixing_common_beta, n, 
+                "Random mixing \n constant sociability", F)
 
 par(old_par) # reset graphical state  
 
+
+
+
+
+
+# If we run multiple simulation with the same parameters repeatedly we can 
+# create confidence intervals on the counts per state each day.
+# Simply get n simulations and go through each day and state, calculating upper 
+# and lower quantiles for that state on that day from the n samples observed.
+# the below function allows for that, and the function below it caters for 
+# plotting such confidence intervals
 get_confidence_band_nseir <- function(n_reps, n_days, ...){
   big_l <- list()
   big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
