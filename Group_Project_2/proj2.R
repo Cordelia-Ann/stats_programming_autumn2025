@@ -90,21 +90,136 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   return(list(S=S,E=E,I=I,R=R, t=1:nt))
 }
 
-
+# plot_pop_change <- function(sim, pop_size, title="", ...){
+#   # Plots the number of people in each state (S,E,I,R)
+#   # over the course of the simulation
+#   # sim  - output of nseir. a list with S,E,I,R,t of length nt with the counts 
+#   #        people in that state each day
+#   # pop_size - the total population size
+#   # title - a title for the plot
+#   # ... - all other arguements are passed to plot
+#   
+#   #initialise an empty plot
+#   plot(NA,NA, type = "n", #show nothing yet
+#        xlim = range(sim$t), #days on X axis
+#        ylim = c(0,n), #number of people on the Y axis
+#        main = title,
+#        cex = .8,
+#        xlab = "Days", ylab = "Size", ...
+#   )
+#   # a colour for each state
+#   cols <-  c("black", "red", "blue", "purple")
+#   states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
+#   #draw a line of each state over time
+#   lines(sim$t, sim$S, lwd = 2, col = cols[1])
+#   lines(sim$t, sim$E, lwd = 2, col = cols[2])
+#   lines(sim$t, sim$I, lwd = 2, col = cols[3])
+#   lines(sim$t, sim$R, lwd = 2, col = cols[4])
+# 
+#   legend(
+#     x = max(sim$t), y = n/2, # centre right
+#     xjust = 1, yjust = .5, # legend sits at the edge of the rhs
+#     legend = states, fill = cols,
+#     bty="n" #no box around the legend
+#   )
+# }
 
 
 set.seed(2025)
-n =1000; h_max = 5
+n =10000; h_max = 5
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-beta <- runif(n)
+beta <- runif(n); 
 system.time( network <- get_net(beta)  )
-system.time(simu <- nseir(beta, h, network ) ) 
+
+realistic_mixing_variable_beta <- nseir(beta, h, network)
+random_mixing_variable_beta <- nseir(beta, h, network, alpha=c(0,0,.04))
+beta_c <- rep(mean(beta), n)
+realistic_mixing_common_beta <- nseir(beta_c, h, network)
+random_mixing_common_beta <- nseir(beta_c, h, network, alpha=c(0,0,.04))
+
+
+# save graphical state to reset it after
+old_par <- par(no.readonly = TRUE) 
+
+
+plot_one_sim<- function(one_sim) {
+  cols <-  c("black", "red", "blue", "purple")
+  states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
+  #draw a line of each state over time
+  lines(one_sim$t, one_sim$S, lwd = 2, col = cols[1])
+  lines(one_sim$t, one_sim$E, lwd = 2, col = cols[2])
+  lines(one_sim$t, one_sim$I, lwd = 2, col = cols[3])
+  lines(one_sim$t, one_sim$R, lwd = 2, col = cols[4])
+} 
+old_par<- par(no.readonly = T)
+par(
+  mfrow=c(2,2),
+  mgp=c(2,1,0)
+)
+
+ days = realistic_mixing_common_beta$t
+#top left so no right or bottom border
+par(mar=c(0,4,4,0))
+plot(NA,NA, type = "n", #show nothing yet
+     xlim = range(days), #days on X axis
+     ylim = c(0,n), #number of people on the Y axis
+     main = "Realistic mixing \n varying sociability",
+     ylab = "Size",
+     xaxt = "n", xlab = "" #nothing on bottom
+)
+plot_one_sim(realistic_mixing_variable_beta)
+#top right so no left or bottom border
+par(mar=c(0,0,4,2))
+plot(NA,NA, type = "n", #show nothing yet
+     xlim = range(days), #days on X axis
+     ylim = c(1,n), #number of people on the Y axis
+     main = "Random mixing \n varying sociability",
+     ylab = "", yaxt = "n",
+     xaxt = "n", xlab = "" #nothing on bottom
+);plot_one_sim(random_mixing_variable_beta)
+#bottom left so no right or top border
+par(mar=c(6,4,0,0))
+plot(NA,NA, type = "n", #show nothing yet
+     xlim = range(days), #days on X axis
+     ylim = c(0,n), #number of people on the Y axis
+     ylab = "Size",
+     xlab = "Days" #nothing on bottom
+);plot_one_sim(realistic_mixing_common_beta)
+title("Realistic mixing \n constant sociability"
+      , line = -11)
+#bottom right so no left or top border
+par(mar=c(6,0,0,2))
+plot(NA,NA, type = "n", #show nothing yet
+     xlim = range(days), #days on X axis
+     ylim = c(0,n), #number of people on the Y axis
+     ylab = "", yaxt = "n",
+     xlab = "Days" #nothing on bottom
+);plot_one_sim(random_mixing_common_beta)
+title("Random mixing \n constant sociability"
+      , line = -11)
 
 
 
-  
-  
-  
+# # a colour for each state
+# cols <-  c("black", "red", "blue", "purple")
+# states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
+# #draw a line of each state over time
+# lines(sim$t, sim$S, lwd = 2, col = cols[1])
+# lines(sim$t, sim$E, lwd = 2, col = cols[2])
+# lines(sim$t, sim$I, lwd = 2, col = cols[3])
+# lines(sim$t, sim$R, lwd = 2, col = cols[4])
+# 
+# legend(
+#   x = max(sim$t), y = n/2, # centre right
+#   xjust = 1, yjust = .5, # legend sits at the edge of the rhs
+#   legend = states, fill = cols,
+#   bty="n" #no box around the legend
+# )
+
+
+
+par(old_par) # reset graphical state  
+
 get_confidence_band_nseir <- function(n_reps, n_days, ...){
   big_l <- list()
   big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
@@ -141,7 +256,7 @@ get_confidence_band_nseir <- function(n_reps, n_days, ...){
   return( list(upper=simu_upper, lower = simu_lower) )
 }
 
-plot_pop_change <- function(simu_upper, simu_lower, pop_size){
+plot_pop_change_bands <- function(simu_upper, simu_lower, pop_size){
   
   days = simu_upper$t
   plot(NA,NA,
