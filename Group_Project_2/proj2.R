@@ -12,8 +12,7 @@ prob_of_link <- function(i, j, b, n_c ){
   # i, j is the indices of person i and person j in beta
   # n_c mean number of contacts per person
   # it is assumed that i, j are not in the same household
-  # this code assumes i holds a single value, whereas j can be of arbitrary
-  # length
+  # this code assumes i holds a single value, whereas j can be of arbitrary length
   n = length(b)#size of the population
   top = n_c*b[i]*b[j]
   bottom =  (n-1)*(mean(b)^2)
@@ -71,6 +70,7 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   #every day in each state for analysis. The model begins with a specified probability
   #of being infected for each person at the very beginning and can be modified.
   
+  #----inputs----#
   #beta stores the sociability values for each person
   #h is the vector of every person by household
   #alink is the social contact network produced by get.net
@@ -116,12 +116,20 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   return(list(S=S,E=E,I=I,R=R, t=1:nt))
 }
 
-
+#set the base parameters needed to generate the social networks and future full models
 n =10000; h_max = 5;beta <- runif(n); beta2 <- runif(n); beta3 <- rep(mean(beta2), n)
+#create households for everyone
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+#create social networks for everyone
 system.time( network <- get_net(beta)  )
 
-
+#create results from four separate simulations with differing parameters.
+#the first is the full model as intended. The second removes the impact of households
+#and social networks on the model but increases random mixing probability.
+#The third model includes the household and network impacts but instead assigns
+#everyone an equal sociability score which is equal to the mean of the scores from
+#the second model. The fourth model combines these two variations to show the outcome
+#for only random mixing and with constant sociability scores for the entire population.
 system.time(full_model <- nseir(beta, h, network ) ) 
 system.time(ran_mix <- nseir(beta2, h,alpha=c(0,0,.04), network ) ) 
 system.time(con_beta <- nseir(beta3, h, network ) ) 
@@ -129,6 +137,13 @@ system.time(con_beta_ran_mix <- nseir(beta3, h,alpha=c(0,0,.04), network ) )
 
 
 plot_pop_change <- function(simu_upper, simu_lower, pop_size, title){
+  #This function plots the number of people in each state every day of the model.
+  
+  #----inputs----#
+  #simu_upper is
+  #simu_lower is
+  #pop_size is the total population size
+  #title is the model title name
   
   days = simu_upper$t
   plot(NA,NA,
@@ -159,7 +174,7 @@ plot_pop_change <- function(simu_upper, simu_lower, pop_size, title){
   )
 }
 
-# until we create the confidence bands lets just reuse existing data
+#set up a 2x2 grid and plot the 4 models next to each other for comparison
 par(mfcol=c(2,2),mar=c(4.1,4.1,1.1,1.1))
 plot_pop_change(full_model, lapply(full_model, function(x) x - 200), n, "Full Model")
 plot_pop_change(ran_mix, lapply(ran_mix, function(x) x - 200), n, "Random Mixing")
