@@ -93,87 +93,56 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 
 
 
-# this shows that the average contacts will on average be nc
-# it takes about a minute to run
-# set.seed(2025); num_reps <- 1000
-# sampled_avg_contacts <- sampled_sd_contacts <- numeric(num_reps)
-# times <- numeric(num_reps)
-# for (i in 1:num_reps){
-#   n =100; h_max = 5;beta <- runif(n)
-#   h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-#   t <- system.time(network <- get_net(beta))
-#   times[i] <- t[3] #elapsed times
-#   counts <- sapply(network, function(x) length(x) )
-#   sampled_avg_contacts[i] <- mean(counts)
-#   sampled_sd_contacts[i] <- sd(counts)
-# }
-# hist(sampled_avg_contacts);mean(sampled_avg_contacts);mean(sampled_sd_contacts)
-# hist(times);mean(times)
-
-
 set.seed(2025)
-n =1000; h_max = 5;beta <- runif(n)
+n =1000; h_max = 5
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+beta <- runif(n)
 system.time( network <- get_net(beta)  )
-
-library("debug")
-# mtrace(nseir)
 system.time(simu <- nseir(beta, h, network ) ) 
-# mtrace.off()
 
 
-# plot(NA,NA,
-#      xlim=range(simu$t), ylim = c(0,n),
-#      type = "n", xlab = "Day", ylab = "N"
-# )
-# lines(simu$t, simu$S)
-# simu$S
-# attributes(simu)
-# colours <- c("black", "red", "blue", "purple")
-# for (i in 1:4 ){
-#   lines(simu$t, simu[[i]], col = colours[i], lwd = 2)
-# }
-# legend(x=100, y = n/2,
-#        legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
-#        xjust = 1, yjust = .5,
-#        fill = colours
-# )
 
+  
+  
+  
+get_confidence_band_nseir <- function(n_reps, n_days, ...){
+  big_l <- list()
+  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+  big_l$S <- big_l$E <- big_l$I <- big_l$R
+  
+  for( i in 1:n_reps){
+    simu <- nseir(...)
+    big_l$S[i,] <- simu$S
+    big_l$E[i,] <- simu$E
+    big_l$I[i,] <- simu$I
+    big_l$R[i,] <- simu$R
+  }
+  
+  
+  simu_lower <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.05))
+      )
+    }
+  )
+  simu_lower$t <- 1:n_days
+  
+  simu_upper <- lapply(
+    big_l, 
+    function(state) {
+      apply(state, 2,
+            function(day_reps) quantile(day_reps,probs=c(.95))
+      )
+    }
+  )
+  simu_upper$t<- 1:n_days
+  return( list(upper=simu_upper, lower = simu_lower) )
+}
 
-#just want to point out something here
-#we NEED to somehow account for the variablility in the output when 
-#we are doing the later steps
-
-# set.seed(2025)
-# n =1000; h_max = 5;beta <- runif(n)
-# h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-# network <- get_net(beta)
-# #now having the same population and beta 
-# # look at how our simulation varies just by random variability
-# plot(NA,NA,
-#      xlim=range(simu$t), ylim = c(0,n),
-#      type = "n", xlab = "Day", ylab = "N"
-# )
-# colours <- c("black", "red", "blue", "purple")
-# 
-# for( some_index in 1:50){
-#   simu <- nseir(beta, h, network ) 
-#   lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
-#   lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
-#   lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
-#   lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
-# }
-
-#I suggest running each of the 4 situations ~100 times, maybe less depending on 
-# runtimes and taking 90% CIs of the each of the states/day
-
-
-# plotting time
-# Since we are now looking at confidence bands instead of specific
-# instances of a simulation our plots need to change
-# here is what I've done as a starting point
 plot_pop_change <- function(simu_upper, simu_lower, pop_size){
-
+  
   days = simu_upper$t
   plot(NA,NA,
        xlim=range(days),
@@ -201,48 +170,4 @@ plot_pop_change <- function(simu_upper, simu_lower, pop_size){
   )
 }
 
-# until we create the confidence bands lets just reuse existing data
-plot_pop_change(simu, lapply(simu, function(x) x - 50), n)
-n_days = 100;n_reps=50;set.seed(2025)
-big_l <- list()
-big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
-big_l$S <- big_l$E <- big_l$I <- big_l$R
-plot(NA,NA,
-     xlim=range(simu$t), ylim = c(0,n),
-     type = "n", xlab = "Day", ylab = "N"
-)
-colours <- c("black", "red", "blue", "purple")
 
-for( i in 1:n_reps){
-  simu <- nseir(beta,h, network, nt = n_days)
-  big_l$S[i,] <- simu$S
-  big_l$E[i,] <- simu$E
-  big_l$I[i,] <- simu$I
-  big_l$R[i,] <- simu$R
-  lines(simu$t, simu[[1]], col = colours[1], lwd = 2)
-  lines(simu$t, simu[[2]], col = colours[2], lwd = 2)
-  lines(simu$t, simu[[3]], col = colours[3], lwd = 2)
-  lines(simu$t, simu[[4]], col = colours[4], lwd = 2)
-}
-
-
-simu_lower <- lapply(
-  big_l, 
-  function(state) {
-    apply(state, 2,
-          function(day_reps) quantile(day_reps,probs=c(.05))
-    )
-  }
-)
-simu_lower$t <- 1:n_days
-
-simu_upper <- lapply(
-  big_l, 
-  function(state) {
-    apply(state, 2,
-          function(day_reps) quantile(day_reps,probs=c(.95))
-    )
-  }
-)
-simu_upper$t<- 1:n_days
-plot_pop_change(simu_upper, simu_lower,n)
