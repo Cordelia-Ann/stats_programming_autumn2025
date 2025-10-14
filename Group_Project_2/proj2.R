@@ -1,29 +1,28 @@
 ### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
 
-# Todd 
-# Naoise 
-# Cordelia 
-# We all collectively debugged and reviewed each others sections 
+# Todd worked primarily on get.link and nseir, improving logic
+# Naoise built much of the main code structure
+# Cordelia built the core plotting functionality
+# We all collectively debugged, reviewed each others sections, and made improvements
 
-setwd("C:\\Users\\toddh\\Stat Programming\\Statistical-Programming\\stats_programming_autumn2025\\stats_programming_autumn2025\\Group_Project_2\\stats_programming_autumn2025\\Group_Project_2")
 prob_of_link <- function(i, j, b, n_c ){
   ## the probability of person i and person j being regular contacts
-  # b is  the vector beta, the sociability parameters for each person in t
+  # b is  the vector beta, the sociability parameters for each person in
   # the population
   # i, j is the indices of person i and person j in beta
   # n_c mean number of contacts per person
   # it is assumed that i, j are not in the same household
   # this code assumes i holds a single value, whereas j can be of arbitrary
   # length
-  n = length(beta)#size of the population
+  n = length(b)#size of the population
   top = n_c*b[i]*b[j]
-  bottom =  (n-1)*(mean(beta)^2)
-  top/bottom
+  bottom =  (n-1)*(mean(b)^2)
+  top/bottom #this is the probability calculated
 }
 
 get_net <- function(beta, nc=15){
   # Randomly create a regular contact network based off of the sociability
-  # of each person,
+  # of each person.
   # beta stores the sociability values for each person
   # nc is the average number of contacts per person
   #
@@ -36,7 +35,7 @@ get_net <- function(beta, nc=15){
   # chance of a contact
   
   n <- length(beta) #size of the population
-  network <- vector("list", n)
+  network <- vector("list",n)
   
   #i only considers the indices greater than i
   #this avoids both i and j considering i<->j 
@@ -48,56 +47,133 @@ get_net <- function(beta, nc=15){
     potential_contacts = potential_contacts[
       !(potential_contacts %in% same_household) ]
     #get the chance of contact between i and the potentials
-    # using their sociabilities
+    #using their sociability rating
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
     #then flip a coin with that probability to decide a contact
     u <- runif(length(potential_contacts))
     contacts = potential_contacts[ u < chance_of_contact ]
     network[[i]] <- c( network[[i]], contacts  )
     # add person i into all of its contacts' contacts
-    network[contacts] <- lapply(network[contacts], function(x) append(x, i) )
+    network[contacts] <- lapply(network[contacts], function(x) c(x, i) )
   }
-  #take out the placeholder NA, without leaving attributes from na.omit
-  lapply(network, function(x) as.numeric(na.omit(x)) )
+  return( network )
 }
 
-set.seed(2025)
-n =1000; h_max = 5;beta <- runif(n)
+nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
+                  ,gamma=.4,nc=15, nt = 100,pinf = .005){
+  
+  #This function simulates the progression of a disease through a population.
+  #People can be in either the Susceptible, Exposed, Infected, or Recovered states
+  #Each day of the simulation, the model assesses the probability of an infectious
+  #person infecting susceptible people and moves them into the exposed state. Every day
+  #there is a chance for an exposed person to become infectious and for infectious
+  #to become recovered. The model stores the total number of people in the population
+  #every day in each state for analysis. The model begins with a specified probability
+  #of being infected for each person at the very beginning and can be modified.
+  
+  #beta stores the sociability values for each person
+  #h is the vector of every person by household
+  #alink is the social contact network produced by get.net
+  #alpha is a vector of 3 infectiousness modifying constants.
+  #in order they modify household infection, social network, and random mixing.
+  #delta is the daily probability of moving from the infectious state to recovered
+  #gamma is the daily probability of moving from the exposed state to infectious
+  #nc is the mean number of contacts per person
+  #nt is the number of days of the simulation
+  #pinf is the probability of being infectious at the beginning of the model
+  n = length(beta) #size of population
+  #record the number of people in each state each day
+  S <- E <- I <- R <- rep(0, nt)
+  pop <- rep(0,n)
+  # a random pinf proportion of the population start as infected,
+  # the remainder are susceptible
+  # if no-one starts out infected, this is a worthless simulation
+  #so we hardcode at least one infection
+  pop[sample(n, size = max(1, floor(n*pinf))) ] <- 2
+  #record the first day
+  S[1] <- sum(pop==0); I[1] <- sum(pop==2)
+  # 
+  a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
+  for (day in 2:nt){
+    u <- runif(n)
+    
+    pop[ pop==2&u<delta ] <- 3 # I -> R
+    pop[ pop==1&u<gamma ] <- 2 # E -> I
+    currently_S <- which(pop==0); n_S <- length(currently_S)
+    for (infected in which(pop == 2)){
+      u<- runif(n_S)
+      #infects a susceptible person through random mixing
+      pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
+      #infects a susceptible member of their household
+      pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
+      #infects a susceptible regular contact
+      pop[currently_S][ currently_S %in% alink[[infected]] & u<a_c ] <- 1
+    }
+    #record today's counts
+    S[day] <- sum(pop==0); E[day] <- sum(pop==1)
+    I[day] <- sum(pop==2); R[day] <- sum(pop==3)
+  }
+  return(list(S=S,E=E,I=I,R=R, t=1:nt))
+}
 
+
+n =10000; h_max = 5;beta <- runif(n); beta2 <- runif(n); beta3 <- rep(mean(beta2), n)
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-
 system.time( network <- get_net(beta)  )
 
-nseir <- function(beta, h, alink, alpha = c(.1, .01, .01), 
-                  delta = .2, gamma = .4, nc = 15, nt = 100, pinf = .005) {
-    ## SEIR stochastic simulation model.
-    ## beta = sociability score; pinf = initially infective; nt = number of days
-    ## gamma = daily prob E -> I; delta = daily prob I -> R;
-    x <- rep(0,n) ## initialize to susceptible state
-    infect <- length(h)*pinf
-    x[1:infect] <- 2 ## create some infectives
-    S <- E <- I <- R <- rep(0,nt) ## set up storage for pop in each state
-    S[1] <- n-infect;I[1] <- infect ## initialize
-    for (i in 2:nt) { ## loop over days
-      u <- runif(n) ## uniform random deviates
-      x[x==2&u<delta] <- 3 ## I -> R with prob delta
-      x[x==1&u<gamma] <- 2 ## E -> I with prob gamma
-      
-      if household member infected
-      x[x==0&u<alpha[1]] <- 1 ## S -> E with probabilities dependent on
-      else
-      if contact network infected
-      x[x==0&u<alpha[2]] <- 1 ## S -> E with probabilities dependent on
-      else random interaction
-      x[x==0&u<((alpha[3]*nc*beta[i]*beta[j])/(mean(beta)*(n-1))] <- 1 ## S -> E with probabilities dependent on
-      
-      
-      x[x==0&u<beta*I[i-1]] <- 1 ## S -> E with probabilities dependent on
-      #their relationship to the other people. so need to determine if they are
-      #in the household of the compared person, or in network, or random contact.
-      S[i] <- sum(x==0); E[i] <- sum(x==1)
-      I[i] <- sum(x==2); R[i] <- sum(x==3)
-    }
-    list(S=S,E=E,I=I,R=R,beta=beta)
-  } ## seir
-model_days <- nseir(social_score, h, reg_contact)
+
+system.time(full_model <- nseir(beta, h, network ) ) 
+system.time(ran_mix <- nseir(beta2, h,alpha=c(0,0,.04), network ) ) 
+system.time(con_beta <- nseir(beta3, h, network ) ) 
+system.time(con_beta_ran_mix <- nseir(beta3, h,alpha=c(0,0,.04), network ) ) 
+
+
+plot_pop_change <- function(simu_upper, simu_lower, pop_size, title){
+  
+  days = simu_upper$t
+  plot(NA,NA,
+       xlim=range(days),
+       ylim = c(0,pop_size),
+       type = "n", xlab = "Day", ylab = "Population",
+       main = title
+       #must put in a title
+  )
+  axis(2, tck = 1, lty = 2, col = "gray")
+  colours <-  c(rgb(0, 0, 0, 0.5), rgb(0, 0, 1, 0.5),
+                 rgb(1, 0, 0, 0.5), rgb(0, 1, 0, 0.5))
+  #need to lower intensity/hue/strength of colours to see overlaps
+  states <- c("S", "E", "I", "R")
+  #doing them in different order as i want E and R on top
+  for (state in states[c(4,1,3,2)] ){
+    polygon(
+      x = c(days, rev(days)),
+      y = c(simu_lower[[state]], rev(simu_upper[[state]]) ),
+      col = colours[state==states]
+    )
+  }
+  legend("left", x=max(days), y = n/2,
+         legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+         cex=.9, xjust = .5, yjust = .5,
+         fill = colours,
+         bty = "n"
+  )
+}
+
+# until we create the confidence bands lets just reuse existing data
+par(mfcol=c(2,2),mar=c(4.1,4.1,1.1,1.1))
+plot_pop_change(full_model, lapply(full_model, function(x) x - 200), n, "Full Model")
+plot_pop_change(ran_mix, lapply(ran_mix, function(x) x - 200), n, "Random Mixing")
+plot_pop_change(con_beta, lapply(con_beta, function(x) x - 200), n, "Constant Beta")
+plot_pop_change(con_beta_ran_mix, lapply(con_beta_ran_mix, function(x) x - 200), n, "Constant Beta + Random Mixing")
+
+
+#The apparent effect of the household and network structure seems to be to smooth out
+#the speed and intensity in which the disease propagates through the population.
+#However, this could reasonably be attributed to the higher value for random mixing
+#The relative size of people's households (at hmax=5) and networks (at nc=15)
+#is a much smaller subset of the population that possible in random mixing.
+#As a result, these social groups, despite higher infectiousness don't play as much
+#of a role as the random mixing. Therefore when random mixing is made more infectious
+#the disease is more aggressive, spikes higher and earlier than those that have
+#these social networks considered and infectiousness broken up more across the three.
+
