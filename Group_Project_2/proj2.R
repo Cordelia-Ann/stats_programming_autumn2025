@@ -1,4 +1,12 @@
-rm(list=ls())
+### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
+
+# Todd worked primarily on get.link and nseir, improving logic
+# Naoise built much of the main code structure
+# Cordelia built the core plotting functionality
+# We all collectively debugged, reviewed each others sections, and made improvements
+
+#https://github.com/Cordelia-Ann/stats_programming_autumn2025/tree/Naoise-branch/Group_Project_2
+
 prob_of_link <- function(i, j, b, n_c ){
   ## the probability of person i and person j meeting 
   # b   - the sociability parameters for the whole population
@@ -118,10 +126,12 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
        main = title,
        cex.main = .8, #reduce title size to 80%
        cex.axis = .7, #reduce axis label size to 70%
-       xlab = "Days", ylab = "Size",
+       xlab = "Days", 
+       ylab = "Number of People", yaxt = "n"
   )
+  axis(2, tck = 1, lty = 2, col ="gray",gap.axis=1/4)
   # a colour for each state
-  cols <-  c("black", "red", "blue", "purple")
+  cols <-  c("black", "blue", "red", "green")
   states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
   #draw a line of each state over time
   lines(sim$t, sim$S, lwd = 2, col = cols[1])
@@ -131,7 +141,7 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
   #add a legend
   legend(
     x = max(sim$t), y = n/2, # centre right
-    xjust = 1, yjust = .5, # legend sits at the edge of the rhs
+    xjust = .5, yjust = .5, # legend sits at the edge of the rhs
     legend = states, fill = cols,
     bty="n", #no box around the legend
     plot = show_legend, #plot or not
@@ -143,7 +153,7 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
 set.seed(2025)
 n =10000; h_max = 5
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
-beta <- runif(n); 
+beta <- runif(n)
 system.time( network <- get_net(beta)  )
 
 realistic_mixing_variable_beta <- nseir(beta, h, network)
@@ -159,17 +169,26 @@ par(mfrow=c(2,2),
   ,mgp=c(2,1,0) # bring axis labels closer to axes
 )
 plot_pop_change(realistic_mixing_variable_beta, n,
-                "Realistic mixing \n varying sociability")
+                "Full Model")
 plot_pop_change(random_mixing_variable_beta, n, 
-                "Random mixing \n varying sociability", F)
+                "Random Mixing", F)
 plot_pop_change(realistic_mixing_common_beta, n, 
-                "Realistic mixing \n constant sociability", F)
+                "Constant Sociability", F)
 plot_pop_change(random_mixing_common_beta, n, 
-                "Random mixing \n constant sociability", F)
+                "Random Mixing and \n Constant Sociability", F)
 
 par(old_par) # reset graphical state  
 
 
+#The apparent effect of the household and network structure seems to be to smooth out
+#the speed and intensity in which the disease propagates through the population.
+#However, this could reasonably be attributed to the higher value for random mixing
+#The relative size of people's households (at hmax=5) and networks (at nc=15)
+#is a much smaller subset of the population that possible in random mixing.
+#As a result, these social groups, despite higher infectiousness don't play as much
+#of a role as the random mixing. Therefore when random mixing is made more infectious
+#the disease is more aggressive, spikes higher and earlier than those that have
+#these social networks considered and infectiousness broken up more across the three.
 
 
 
