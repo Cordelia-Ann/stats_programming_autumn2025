@@ -19,7 +19,7 @@ prob_of_link <- function(i, j, b, n_c ){
   top/bottom
 }
 
-get_net <- function(beta, nc=15){
+get.net <- function(beta, nc=15){
   # Randomly creates a regular contact network from the sociabilitiy parameters
   # of the population
   # beta - sociability values for the whole population
@@ -30,7 +30,6 @@ get_net <- function(beta, nc=15){
   n <- length(beta) #size of the population
   network <- vector("list",n)
   
-  
   #person i only considers the indices greater than i
   #this avoids both i and j considering i<->j  which would double the chance of 
   # a link being created
@@ -39,16 +38,15 @@ get_net <- function(beta, nc=15){
     potential_contacts = (i+1):n
     #omit members of the same household, taking h from the outside environment
     same_household = which(h == h[i])
-    potential_contacts = potential_contacts[
-      !(potential_contacts %in% same_household) ]
+    potential_contacts = potential_contacts[!(potential_contacts %in% same_household) ]
     #get the chance of contact between i and the potential contacts
     # using their sociabilities
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
-    # with that probability i and j become regular contacts
+    # with that chance, i and j become regular contacts
     u <- runif(length(potential_contacts))
     contacts = potential_contacts[ u < chance_of_contact ]
     network[[i]] <- c( network[[i]], contacts  )
-    # add person i into all of its contacts' contacts
+    # add person i into all of their contacts' contacts
     network[contacts] <- lapply(network[contacts], function(x) c(x, i) )
   }
   return( network )
@@ -56,15 +54,15 @@ get_net <- function(beta, nc=15){
 
 nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
                   ,gamma=.4,nc=15, nt = 100,pinf = .005){
-  #Simulate the spread of an epidemic in a population under the SEIR model
-  # beta  - sociability parameters for the whole population
-  # h     - maps a person to their household
+  # Simulate the spread of an epidemic in a population under the SEIR model
+  # beta  - a vector of sociability parameters for the whole population
+  # h     - a vector of households where h[i] is the household of person i
   # alink - a list containing the regular contacts for each individual
-  # alpha - the chance of an infectious person infecting a suceptible
-  #       -  household member, regular contact and person they randomly bump into,
+  # alpha - the chance of an infectious person infecting a susceptible
+  #          household member, regular contact, and person they randomly bump into,
   #          respectively
-  # delta - chance person moves from Infectious to Recovered
-  # gamma - chance person moves from Exposed to Infectious 
+  # delta - the chance a person moves from Infectious to Recovered
+  # gamma - the chance a person moves from Exposed to Infectious 
   # nc    - average number of regular contacts per person, used in random mixing
   # nt    - number of days to run the simulation for
   # pinf  - the proportion of the population that is Infectious initially
@@ -74,7 +72,8 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   
   n = length(beta) # population size
   S <- E <- I <- R <- rep(0, nt)
-  # the state of each individual is recorded as 0/1/2/3 encoding S/E/I/R
+  # the state of each individual is recorded as 0/1/2/3 
+  # encoding Susceptible/Exposed/Infectious/Recovered
   pop <- rep(0,n)
   # a random pinf proportion of the population start as infected,
   # the remainder are susceptible
@@ -86,16 +85,16 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
   # extract elements of alpha as explained above
   a_h <- alpha[1]; a_c <- alpha[2]; a_r <- alpha[3] 
   for (day in 2:nt){
-    u <- runif(n) #coin 
-    pop[ pop==2&u<delta ] <- 3 # I -> R
-    pop[ pop==1&u<gamma ] <- 2 # E -> I
+    u <- runif(n)
+    pop[ pop==2&u<delta ] <- 3 # Infectious -> Recovered
+    pop[ pop==1&u<gamma ] <- 2 # Exposed -> Infectious
     
     currently_S <- which(pop==0); n_S <- length(currently_S)
     # each infectious person may infect the currently Susceptible
     for (infected in which(pop == 2)){
       u<- runif(n_S)
       #infects a susceptible person through random mixing
-      # chance of infection is chance of meeting randomly times a_r
+      # this chance of infection is the chance of meeting randomly times a_r
       pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
       #infects a susceptible member of their household
       pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
@@ -112,8 +111,8 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
 plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
   # Plots the number of people in each state S,E,I,R
   # over the course of the simulation
-  # sim         - output of nseir. a list with S,E,I,R,t each of length nt 
-                  # storing the counts of people in each state foreach day in t
+  # sim         - simulated output of nseir. a list with S,E,I,R,t each of length nt 
+  #               storing the counts of people in each state for each day in t
   # pop_size    - the total population size
   # title       - a title for the plot
   # show_legend - include a legend or not
@@ -127,9 +126,11 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
        cex.main = .8, #reduce title size to 80%
        cex.axis = .7, #reduce axis label size to 70%
        xlab = "Days", 
-       ylab = "Number of People", yaxt = "n"
+       ylab = "Number of People",
+       yaxt = "n" #dont add Y-ticks here-done below
   )
-  axis(2, tck = 1, lty = 2, col ="gray",gap.axis=1/4)
+  #add dotted horizontal gridlines
+  axis(2, tck = 1, lty = 2, col ="gray", gap.axis=1/4)
   # a colour for each state
   cols <-  c("black", "blue", "red", "green")
   states <- c("Susceptible", "Exposed", "Infectious", "Recovered")
@@ -144,32 +145,45 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
     xjust = .5, yjust = .5, # legend sits at the edge of the rhs
     legend = states, fill = cols,
     bty="n", #no box around the legend
-    plot = show_legend, #plot or not
+    plot = show_legend, #show the legend on the plot or not
     cex = .8 #make the text smaller
   )
 }
 
 
-set.seed(2025)
-n =10000; h_max = 5
+n =10000; h_max = 5 # maximum household size
+#assign n people to households of sizes between 1-h_max
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
+#randomly sample population sociability parameters
 beta <- runif(n)
-system.time( network <- get_net(beta)  )
+#create a regualar contacts network for this population
+network <- get.net(beta)
 
+#run 4 situations
+#the full model has household, regular contacts and random mixing and there are
+#different sociablility parameters for each person
 realistic_mixing_variable_beta <- nseir(beta, h, network)
+# the model with only random mixing but with a higher infection rate for random 
+# mixing, again there are different sociablility parameters for each person
 random_mixing_variable_beta <- nseir(beta, h, network, alpha=c(0,0,.04))
+#now we assume the sociability parameters are a constant average value
 beta_c <- rep(mean(beta), n)
+# the model has household, regular contacts and random mixing but constant
+# sociability
 realistic_mixing_common_beta <- nseir(beta_c, h, network)
+# the most simple model where there is only random mixing and constant sociability
 random_mixing_common_beta <- nseir(beta_c, h, network, alpha=c(0,0,.04))
 
-# save graphical state before altering it
+# save graphical state to reset it later
 old_par <- par(no.readonly = TRUE) 
-par(mfrow=c(2,2),
+par(mfrow=c(2,2), #2x2 grid
   mar=c(3,3,2,2) # decrease the margins
   ,mgp=c(2,1,0) # bring axis labels closer to axes
 )
+#plot the 4 models for comparison
 plot_pop_change(realistic_mixing_variable_beta, n,
                 "Full Model")
+#dont show the legends on the remaining plots
 plot_pop_change(random_mixing_variable_beta, n, 
                 "Random Mixing", F)
 plot_pop_change(realistic_mixing_common_beta, n, 
@@ -199,69 +213,67 @@ par(old_par) # reset graphical state
 # and lower quantiles for that state on that day from the n samples observed.
 # the below function allows for that, and the function below it caters for 
 # plotting such confidence intervals
-get_confidence_band_nseir <- function(n_reps, n_days, ...){
-  big_l <- list()
-  big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
-  big_l$S <- big_l$E <- big_l$I <- big_l$R
-  
-  for( i in 1:n_reps){
-    simu <- nseir(...)
-    big_l$S[i,] <- simu$S
-    big_l$E[i,] <- simu$E
-    big_l$I[i,] <- simu$I
-    big_l$R[i,] <- simu$R
-  }
-  
-  
-  simu_lower <- lapply(
-    big_l, 
-    function(state) {
-      apply(state, 2,
-            function(day_reps) quantile(day_reps,probs=c(.05))
-      )
-    }
-  )
-  simu_lower$t <- 1:n_days
-  
-  simu_upper <- lapply(
-    big_l, 
-    function(state) {
-      apply(state, 2,
-            function(day_reps) quantile(day_reps,probs=c(.95))
-      )
-    }
-  )
-  simu_upper$t<- 1:n_days
-  return( list(upper=simu_upper, lower = simu_lower) )
-}
-
-plot_pop_change_bands <- function(simu_upper, simu_lower, pop_size){
-  
-  days = simu_upper$t
-  plot(NA,NA,
-       xlim=range(days),
-       ylim = c(0,pop_size),
-       type = "n", xlab = "Day", ylab = "N",
-       main = "Typical epidemic development"
-       #must put in a title
-  )
-  colours <-  c("black", "red", "blue", "purple")
-  #need to lower intensity/hue/strength of colours to see overlaps
-  states <- c("S", "E", "I", "R")
-  #doing them in different order as i want E and R on top
-  for (state in states[c(4,1,3,2)] ){
-    polygon(
-      x = c(days, rev(days)),
-      y = c(simu_lower[[state]], rev(simu_upper[[state]]) ),
-      col = colours[state==states]
-    )
-  }
-  legend(x=max(days), y = n/2,
-         legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
-         xjust = 1, yjust = .5,
-         fill = colours,
-         bty = "n"
-  )
-}
-
-
+# get_confidence_band_nseir <- function(n_reps, n_days, ...){
+#   big_l <- list()
+#   big_l$R <-  matrix(NA, nrow=n_reps, ncol=n_days)
+#   big_l$S <- big_l$E <- big_l$I <- big_l$R
+#   
+#   for( i in 1:n_reps){
+#     simu <- nseir(...)
+#     big_l$S[i,] <- simu$S
+#     big_l$E[i,] <- simu$E
+#     big_l$I[i,] <- simu$I
+#     big_l$R[i,] <- simu$R
+#   }
+#   
+#   
+#   simu_lower <- lapply(
+#     big_l, 
+#     function(state) {
+#       apply(state, 2,
+#             function(day_reps) quantile(day_reps,probs=c(.05))
+#       )
+#     }
+#   )
+#   simu_lower$t <- 1:n_days
+#   
+#   simu_upper <- lapply(
+#     big_l, 
+#     function(state) {
+#       apply(state, 2,
+#             function(day_reps) quantile(day_reps,probs=c(.95))
+#       )
+#     }
+#   )
+#   simu_upper$t<- 1:n_days
+#   return( list(upper=simu_upper, lower = simu_lower) )
+# }
+# 
+# plot_pop_change_bands <- function(simu_upper, simu_lower, pop_size){
+#   
+#   days = simu_upper$t
+#   plot(NA,NA,
+#        xlim=range(days),
+#        ylim = c(0,pop_size),
+#        type = "n", xlab = "Day", ylab = "N",
+#        main = "Typical epidemic development"
+#        #must put in a title
+#   )
+#   colours <-  c("black", "red", "blue", "purple")
+#   #need to lower intensity/hue/strength of colours to see overlaps
+#   states <- c("S", "E", "I", "R")
+#   #doing them in different order as i want E and R on top
+#   for (state in states[c(4,1,3,2)] ){
+#     polygon(
+#       x = c(days, rev(days)),
+#       y = c(simu_lower[[state]], rev(simu_upper[[state]]) ),
+#       col = colours[state==states]
+#     )
+#   }
+#   legend(x=max(days), y = n/2,
+#          legend = c("Susceptible", "Exposed", "Infectious", "Recovered"),
+#          xjust = 1, yjust = .5,
+#          fill = colours,
+#          bty = "n"
+#   )
+# }
