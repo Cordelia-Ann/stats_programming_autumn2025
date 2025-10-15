@@ -58,29 +58,8 @@ get_net <- function(beta, nc=15){
   return( network )
 }
 
-nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
-                  ,gamma=.4,nc=15, nt = 100,pinf = .005){
-  
-  #This function simulates the progression of a disease through a population.
-  #People can be in either the Susceptible, Exposed, Infected, or Recovered states
-  #Each day of the simulation, the model assesses the probability of an infectious
-  #person infecting susceptible people and moves them into the exposed state. Every day
-  #there is a chance for an exposed person to become infectious and for infectious
-  #to become recovered. The model stores the total number of people in the population
-  #every day in each state for analysis. The model begins with a specified probability
-  #of being infected for each person at the very beginning and can be modified.
-  
-  #----inputs----#
-  #beta stores the sociability values for each person
-  #h is the vector of every person by household
-  #alink is the social contact network produced by get.net
-  #alpha is a vector of 3 infectiousness modifying constants.
-  #in order they modify household infection, social network, and random mixing.
-  #delta is the daily probability of moving from the infectious state to recovered
-  #gamma is the daily probability of moving from the exposed state to infectious
-  #nc is the mean number of contacts per person
-  #nt is the number of days of the simulation
-  #pinf is the probability of being infectious at the beginning of the model
+nseir_b <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
+                    ,gamma=.4,nc=15, nt = 100,pinf = .005){
   n = length(beta) #size of population
   #record the number of people in each state each day
   S <- E <- I <- R <- rep(0, nt)
@@ -100,15 +79,32 @@ nseir <- function(beta,h,alink,alpha=c(.1,.01,.01),delta=.2
     pop[ pop==2&u<delta ] <- 3 # I -> R
     pop[ pop==1&u<gamma ] <- 2 # E -> I
     currently_S <- which(pop==0); n_S <- length(currently_S)
-    for (infected in which(pop == 2)){
-      u<- runif(n_S)
-      #infects a susceptible person through random mixing
-      pop[currently_S][ u<a_r*prob_of_link(infected, currently_S, beta, nc) ] <- 1
-      #infects a susceptible member of their household
-      pop[currently_S][ h[currently_S]==h[infected] & u<a_h ] <- 1
-      #infects a susceptible regular contact
-      pop[currently_S][ currently_S %in% alink[[infected]] & u<a_c ] <- 1
+    currently_I <- which(pop==2)
+    #you'll want your wheatabix before this
+    if( length(currently_I) >0 ){
+      currently_I <- matrix(currently_I)
+      #for each element, called infected, in currently_I
+      # we work out who they infect as before by working out probabilities
+      # and flipping coins
+      #then return that as a list, where entry i is the people who have been
+      # infected by i
+      # we unlist that as we only need a vector
+      # and then we set those susceptable people in the population to exposed
+      newly_I <- unlist(apply(
+        currently_I,1, 
+        function(infected){
+          u <- runif(n_S);
+          c(
+            which(u<a_r*prob_of_link(infected, currently_S, beta, nc))
+            ,which(h[currently_S]==h[infected] & u<a_h )
+            ,which(currently_S %in% alink[[infected]] & u<a_c)
+          )
+        }              
+      ))
+      
+      pop[currently_S][newly_I] <- 1
     }
+    
     #record today's counts
     S[day] <- sum(pop==0); E[day] <- sum(pop==1)
     I[day] <- sum(pop==2); R[day] <- sum(pop==3)
@@ -130,9 +126,9 @@ system.time( network <- get_net(beta)  )
 #everyone an equal sociability score which is equal to the mean of the scores from
 #the second model. The fourth model combines these two variations to show the outcome
 #for only random mixing and with constant sociability scores for the entire population.
-system.time(full_model <- nseir(beta, h, network ) ) 
-system.time(ran_mix <- nseir(beta2, h,alpha=c(0,0,.04), network ) ) 
-system.time(con_beta <- nseir(beta3, h, network ) ) 
+system.time(full_model <- nseir_b(beta, h, network ) ) 
+system.time(ran_mix <- nseir_b(beta2, h,alpha=c(0,0,.04), network ) ) 
+system.time(con_beta <- nseir_b(beta3, h, network ) ) 
 system.time(con_beta_ran_mix <- nseir(beta3, h,alpha=c(0,0,.04), network ) ) 
 
 
@@ -153,7 +149,7 @@ plot_pop_change <- function(simu_upper, simu_lower, pop_size, title){
        main = title
        #must put in a title
   )
-  axis(2, tck = 1, lty = 2, col = "gray")
+  axis(2, tck = 1, lty = 2, col = "gray", gap.axis = 1/4)
   colours <-  c(rgb(0, 0, 0, 0.5), rgb(0, 0, 1, 0.5),
                  rgb(1, 0, 0, 0.5), rgb(0, 1, 0, 0.5))
   #need to lower intensity/hue/strength of colours to see overlaps
@@ -175,7 +171,7 @@ plot_pop_change <- function(simu_upper, simu_lower, pop_size, title){
 }
 
 #set up a 2x2 grid and plot the 4 models next to each other for comparison
-par(mfcol=c(2,2),mar=c(4.1,4.1,1.1,1.1))
+par(mfrow=c(2,2),mar=c(4.1,4.1,1.1,1.1))
 plot_pop_change(full_model, lapply(full_model, function(x) x - 200), n, "Full Model")
 plot_pop_change(ran_mix, lapply(ran_mix, function(x) x - 200), n, "Random Mixing")
 plot_pop_change(con_beta, lapply(con_beta, function(x) x - 200), n, "Constant Beta")
@@ -191,4 +187,6 @@ plot_pop_change(con_beta_ran_mix, lapply(con_beta_ran_mix, function(x) x - 200),
 #of a role as the random mixing. Therefore when random mixing is made more infectious
 #the disease is more aggressive, spikes higher and earlier than those that have
 #these social networks considered and infectiousness broken up more across the three.
-
+#The constant beta to have more of a noticeable effect when combined with the random
+#mixing as it leads to many more people getting infected and pushes the peak infection
+#date slightly to the right.
