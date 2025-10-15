@@ -203,8 +203,9 @@ par(old_par) # reset graphical state
 #of a role as the random mixing. Therefore when random mixing is made more infectious
 #the disease is more aggressive, spikes higher and earlier than those that have
 #these social networks considered and infectiousness broken up more across the three.
-
-
+#The constant beta to have more of a noticeable effect when combined with the random
+#mixing as it leads to many more people getting infected and pushes the peak infection
+#date slightly to the right.
 
 
 # If we run multiple simulation with the same parameters repeatedly we can 
