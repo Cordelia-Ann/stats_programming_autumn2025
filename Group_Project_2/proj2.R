@@ -1,7 +1,6 @@
 ### Naoise Daly s2848034, Todd House s2809867, Cordelia Bryant s2798199 ###
 
-# Todd worked primarily on get.link and nseir, improving logic
-# Naoise built much of the main code structure
+# Todd and Naoise worked simultaneously on nseir, get.net and general code structure
 # Cordelia built the core plotting functionality
 # We all collectively debugged, reviewed each others sections, and made improvements
 
@@ -161,7 +160,7 @@ plot_pop_change <- function(sim, pop_size, title="", show_legend = T){
        cex.axis = .7, #reduce axis label size to 70%
        xlab = "Days", 
        ylab = "Number of People",
-       yaxt = "n" #dont add Y-ticks here-done below
+       yaxt = "n" #don't add Y-ticks here - done below
   )
   #add dotted horizontal gridlines
   axis(2, tck = 1, lty = 2, col ="gray", gap.axis=1/4)
@@ -227,6 +226,20 @@ plot_pop_change(random_mixing_common_beta, n,
 
 par(old_par) # reset graphical state  
 
+# Looking top to bottom:
+# Models with constant sociability predict more people will eventually contract the disease.
+# Looking left to right: 
+# Models omitting household and contact networks predict an earlier and sharper spike 
+# in the number of people Exposed or Infectious.
+
+# The last, most basic, model with constant sociability and random mixing predicts 90% 
+# of the population contracting the disease.
+# The first two models with the more realistic assumption that the chance of contracting
+# the disease is not the same for every individual predict 80% of the population 
+# contracts the disease.
+# The basic model predicts significantly worse outcomes for the spread of the epidemic.
+
+
 
 #The apparent effect of the household and network structure seems to be to smooth out
 #the speed and intensity in which the disease propagates through the population.
@@ -241,6 +254,10 @@ par(old_par) # reset graphical state
 #mixing as it leads to many more people getting infected and pushes the peak infection
 #date slightly to the right.
 
+
+
+
+############ Extra ############
 
 # If we run multiple simulation with the same parameters repeatedly we can 
 # create confidence intervals on the counts per state each day.
