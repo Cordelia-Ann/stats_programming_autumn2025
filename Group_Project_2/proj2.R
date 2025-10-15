@@ -5,7 +5,41 @@
 # Cordelia built the core plotting functionality
 # We all collectively debugged, reviewed each others sections, and made improvements
 
-#https://github.com/Cordelia-Ann/stats_programming_autumn2025/tree/Naoise-branch/Group_Project_2
+# https://github.com/Cordelia-Ann/stats_programming_autumn2025/tree/Naoise-branch/Group_Project_2
+
+############################
+# This scripts simulates the spread of an epidemic using a modification of the SEIR model.
+
+# In the SEIR model each individual in a fixed closed population is one of 4 states:
+# Susceptible - has not contracted the disease
+# Exposed     - has contracted the disease but cannot spread it to others
+# Infectious  - has contracted the disease and may spread it to others
+# Recovered   - has contracted the disease previously but has now either recovered or passed away
+# The dynamics of the epidemic are modelled by how each individual transitions between these states,
+# typically on a day by day basis
+# An Infectious person will move to Recovered with a set probability delta
+# An Exposed person will move to Infectious with a set probability gamma
+# In the basic SEIR model a Susceptible person will move to Exposed with a probability
+# defined as a set beta times the number of Infectious people
+# This script allows for extensions of that last feature
+
+# This scripts allows beta to vary from person to person, capturing a notion of a persons "sociability"
+# The prob_of_link function defines the chance of two people randomly meeting each other,
+# based on the sociability of each person.
+# This is an attempt to better capture chance encounters in the real world.
+# The function nseir incorporates into the SEIR framework the fact a person will be part of a household
+# and will have a network of regular contact as well as randomly bumping into other people in the population.
+# These are different avenues of infections and nseir allows for specifying different chances of infection in each case.
+# The script assigns individuals to households (sizes varying uniformly between 1 and 5) 
+# and then randomly creates a network of regular contacts for each person using get.net.
+
+# With this in place, we then examine the dynamics seen in the simulations produced in:
+# the full, more sophisticated, model with multiple infection avenues and varing beta values
+# the full model with multiple infection avenues and with a common beta value for the population
+# the basic model where infection spreads only through people randomly mixing but varying beta values
+# the basic model where infection spreads only through people randomly mixing and with a common beta
+
+
 
 prob_of_link <- function(i, j, b, n_c ){
   ## the probability of person i and person j meeting 
