@@ -32,11 +32,11 @@
 # The script assigns individuals to households (sizes varying uniformly between 1 and 5) 
 # and then randomly creates a network of regular contacts for each person using get.net.
 
-# With this in place, we then examine the dynamics seen in the simulations produced in:
+# With this in place, we then examine the dynamics seen in the simulations produced by:
 # the full, more sophisticated, model with multiple infection avenues and varing beta values
-# the full model with multiple infection avenues and with a common beta value for the population
-# the basic model where infection spreads only through people randomly mixing but varying beta values
-# the basic model where infection spreads only through people randomly mixing and with a common beta
+# the model with multiple infection avenues and with a constant beta value for the population
+# the basic model where infection spreads only through people randomly mixing but with varying beta values
+# the basic model where infection spreads only through people randomly mixing and with a constant beta
 
 
 
@@ -53,7 +53,7 @@ prob_of_link <- function(i, j, b, n_c ){
 }
 
 get.net <- function(beta, nc=15){
-  # Randomly creates a regular contact network from the sociabilitiy parameters
+  # Randomly creates a regular contact network from the sociability parameters
   # of the population
   # beta - sociability values for the whole population
   # nc   - average number of contacts per person
@@ -72,7 +72,7 @@ get.net <- function(beta, nc=15){
     #omit members of the same household, taking h from the outside environment
     same_household = which(h == h[i])
     potential_contacts = potential_contacts[!(potential_contacts %in% same_household) ]
-    #get the chance of contact between i and the potential contacts
+    #get the chance of contact between i and their potential contacts
     # using their sociabilities
     chance_of_contact = prob_of_link(i, potential_contacts, beta, nc)
     # with that chance, i and j become regular contacts
@@ -189,15 +189,15 @@ n =10000; h_max = 5 # maximum household size
 h = rep(1:n, times = sample(1:h_max, n, replace =TRUE))[1:n]
 #randomly sample population sociability parameters
 beta <- runif(n)
-#create a regualar contacts network for this population
+#create a regular contacts network for this population
 network <- get.net(beta)
 
 #run 4 situations
 #the full model has household, regular contacts and random mixing and there are
-#different sociablility parameters for each person
+#different sociability parameters for each person
 realistic_mixing_variable_beta <- nseir(beta, h, network)
 # the model with only random mixing but with a higher infection rate for random 
-# mixing, again there are different sociablility parameters for each person
+# mixing, again there are different sociability parameters for each person
 random_mixing_variable_beta <- nseir(beta, h, network, alpha=c(0,0,.04))
 #now we assume the sociability parameters are a constant average value
 beta_c <- rep(mean(beta), n)
@@ -215,12 +215,12 @@ par(mfrow=c(2,2), #2x2 grid
 )
 #plot the 4 models for comparison
 plot_pop_change(realistic_mixing_variable_beta, n,
-                "Full Model")
+                "Realistic Mixing and \n Varying Sociability")
 #dont show the legends on the remaining plots
 plot_pop_change(random_mixing_variable_beta, n, 
-                "Random Mixing", F)
+                "Random Mixing and \n Varying Sociability", F)
 plot_pop_change(realistic_mixing_common_beta, n, 
-                "Constant Sociability", F)
+                "Realistic Mixing and \n Constant Sociability", F)
 plot_pop_change(random_mixing_common_beta, n, 
                 "Random Mixing and \n Constant Sociability", F)
 
